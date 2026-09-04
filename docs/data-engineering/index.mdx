@@ -13,33 +13,45 @@ latency.
 
 This track assumes [Foundations](/foundations/) — especially
 [joins](/foundations/inner-join), [`GROUP BY`](/foundations/group-by-and-aggregation),
-[window functions](/foundations/window-functions-partitioning-and-ranking), and
-[`MERGE`](/foundations/upsert-and-merge). It is being built out; the two pages
-below are complete and set the format.
+[window functions](/foundations/window-functions-partitioning-and-ranking),
+[`MERGE`](/foundations/upsert-and-merge), and
+[`DISTINCT ON`](/foundations/distinct-and-distinct-on). Every page has a
+hand-trace, a live in-browser SQL runner, Build → Break → Fix → Why scenarios,
+and a CI-tested script.
 
-## Topics
+## Modeling
 
+3. [OLTP vs OLAP; row stores vs column stores](/data-engineering/oltp-vs-olap-and-columnar)
 1. [Dimensional modeling: the star schema](/data-engineering/dimensional-modeling-star-schema)
-   — turning a normalized OLTP schema into facts and dimensions, and why the
-   warehouse denormalizes on purpose.
+4. [Grain & measure additivity, in depth](/data-engineering/grain-and-measure-additivity)
+12. [Bridge tables for many-to-many in a star schema](/data-engineering/bridge-tables)
+10. [The date dimension & filling time-series gaps](/data-engineering/the-date-dimension-and-gap-filling)
+
+## History (slowly changing dimensions)
+
 2. [Slowly Changing Dimensions — Type 2](/data-engineering/slowly-changing-dimensions-type-2)
-   — keeping history when a dimension attribute changes: validity windows,
-   surrogate keys, and the `MERGE`-based load.
+5. [SCD Types 0, 1, 3, 4 & 6](/data-engineering/scd-types-1-3-4-6)
+13. [Late-arriving dimensions & facts](/data-engineering/late-arriving-data)
 
-## On the build list
+## Loading
 
-- OLTP vs OLAP; row stores vs column stores
-- Grain, and additive / semi-additive / non-additive measures
-- SCD Types 0, 1, 3, 4, 6 — the rest of the family
-- Incremental loads & watermarks; idempotent re-runs
-- Deduplication and data-quality checks in SQL
-- Sessionization with window functions
-- Pivot / unpivot (`crosstab`, `FILTER`, `CASE`)
-- The date / calendar dimension; filling time-series gaps
-- `GROUPING SETS` for pre-aggregated rollups
-- Bridge tables for many-to-many in a star schema
-- Late-arriving dimensions and facts
-- Declarative partitioning & partition pruning
-- `BRIN` indexes for append-only fact tables
+6. [Incremental loads & watermarks](/data-engineering/incremental-loads-and-watermarks)
+7. [Deduplication & data-quality checks](/data-engineering/deduplication-and-data-quality)
+11. [Rollup & summary tables](/data-engineering/rollup-and-summary-tables)
 
-Want one of these next? [Open an issue.](https://github.com/AthreyaRah/sql-fp/issues)
+## Transforms
+
+8. [Sessionization with window functions](/data-engineering/sessionization-with-window-functions)
+9. [Pivot & unpivot](/data-engineering/pivot-and-unpivot)
+
+## Scaling the warehouse in Postgres
+
+14. [Declarative partitioning & partition pruning](/data-engineering/table-partitioning)
+15. [BRIN indexes for append-only fact tables](/data-engineering/brin-and-append-only-tables)
+
+## Related
+
+- [Backend Engineering](/backend/) — SQL as the storage layer
+- [Foundations → Window functions](/foundations/window-functions-partitioning-and-ranking),
+  [Upsert & MERGE](/foundations/upsert-and-merge),
+  [Index types](/foundations/index-types)
