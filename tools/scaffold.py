@@ -67,6 +67,19 @@ FOUNDATIONS = [
 BACKEND = [
     ("keyset-pagination-and-the-n-plus-1-problem", "Keyset pagination & the N+1 problem"),
     ("reading-explain-plans-and-query-optimization", "Reading EXPLAIN plans & query optimization"),
+    ("normalization-1nf-to-bcnf", "Normalization: 1NF to BCNF (and when to stop)"),
+    ("surrogate-vs-natural-keys", "Surrogate vs natural keys: bigint, UUID, uuidv7"),
+    ("modeling-relationships", "Modeling relationships: 1:1, 1:N, M:N"),
+    ("soft-deletes-and-audit-columns", "Soft deletes, timestamps & audit columns"),
+    ("optimistic-vs-pessimistic-locking", "Optimistic vs pessimistic locking"),
+    ("write-skew-and-lost-update", "Write skew & lost update in practice"),
+    ("exists-vs-in-vs-join", "EXISTS vs IN vs JOIN for existence checks"),
+    ("jsonb-patterns-and-gin", "JSONB patterns & GIN indexing"),
+    ("full-text-search", "Full-text search: tsvector, tsquery, ranking"),
+    ("enums-vs-lookup-tables", "Enums vs lookup tables"),
+    ("safe-schema-migrations", "Safe schema migrations: locks, backfills, NOT VALID"),
+    ("idempotency-keys", "Idempotency keys & exactly-once writes"),
+    ("connection-pooling-and-prepared-statements", "Connection pooling & prepared statements"),
 ]
 
 DATA_ENGINEERING = [

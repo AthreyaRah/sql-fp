@@ -11,32 +11,43 @@ that outlives every rewrite and is hardest to scale, so the queries an endpoint
 runs — and the schema they run against — matter more than the framework around
 them.
 
-This track assumes [Foundations](/foundations/). It is being built out; the two
-pages below are complete and set the format.
+This track assumes [Foundations](/foundations/). Every page has a hand-trace, a
+live in-browser SQL runner, Build → Break → Fix → Why scenarios, and a
+CI-tested script.
 
-## Topics
+## Query patterns
 
 1. [Keyset pagination & the N+1 problem](/backend/keyset-pagination-and-the-n-plus-1-problem)
-   — why `OFFSET 100000` gets slower every page, the keyset fix, and the N+1
-   query pattern ORMs fall into.
 2. [Reading EXPLAIN plans & query optimization](/backend/reading-explain-plans-and-query-optimization)
-   — the same endpoint query before and after an index, read off the plan node
-   by node.
+9. [`EXISTS` vs `IN` vs `JOIN` for existence checks](/backend/exists-vs-in-vs-join)
 
-## On the build list
+## Schema design
 
-- Schema design for OLTP & normalization (1NF → BCNF), and when to stop
-- Surrogate vs natural keys; `bigint` vs `UUID` vs `uuidv7`
-- Modeling relationships: 1:1, 1:N, M:N, junction tables
-- Soft deletes, `created_at`/`updated_at`, audit trails, triggers
-- Optimistic vs pessimistic locking; `SELECT ... FOR UPDATE`
-- Transaction anomalies in practice: lost update, write skew
-- `EXISTS` vs `IN` vs `JOIN` for existence checks
-- `JSONB`: when to reach for it, and `GIN` indexing
-- Full-text search in Postgres: `tsvector`, `tsquery`, ranking
-- Enums, lookup tables, and `CHECK` constraints
-- Safe migrations: lock levels, backfills, `NOT VALID` constraints
-- Idempotency keys & unique constraints for retried requests
-- Connection pooling & prepared statements
+3. [Normalization: 1NF → BCNF (and when to stop)](/backend/normalization-1nf-to-bcnf)
+4. [Surrogate vs natural keys: `bigint`, `UUID`, `uuidv7`](/backend/surrogate-vs-natural-keys)
+5. [Modeling relationships: 1:1, 1:N, M:N](/backend/modeling-relationships)
+6. [Soft deletes, timestamps & audit columns](/backend/soft-deletes-and-audit-columns)
+12. [Enums vs lookup tables](/backend/enums-vs-lookup-tables)
 
-Want one of these next? [Open an issue.](https://github.com/AthreyaRah/sql-fp/issues)
+## Concurrency
+
+7. [Optimistic vs pessimistic locking](/backend/optimistic-vs-pessimistic-locking)
+8. [Write skew & lost update in practice](/backend/write-skew-and-lost-update)
+14. [Idempotency keys & exactly-once writes](/backend/idempotency-keys)
+
+## Postgres features for a backend
+
+10. [JSONB patterns & GIN indexing](/backend/jsonb-patterns-and-gin)
+11. [Full-text search: `tsvector`, `tsquery`, ranking](/backend/full-text-search)
+
+## Operations
+
+13. [Safe schema migrations: locks, backfills, `NOT VALID`](/backend/safe-schema-migrations)
+15. [Connection pooling & prepared statements](/backend/connection-pooling-and-prepared-statements)
+
+## Related
+
+- [Data Engineering](/data-engineering/) — SQL as the transformation layer
+- [Foundations → Indexes](/foundations/indexes-and-the-b-tree),
+  [Reading query plans](/foundations/reading-query-plans),
+  [Isolation & MVCC](/foundations/isolation-levels-and-mvcc)
