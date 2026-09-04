@@ -1,0 +1,214 @@
+---
+title: "JSON & JSONB"
+sidebar_position: 35
+slug: /foundations/json-and-jsonb
+description: jsonb stores a parsed document you can index and query. The operator zoo (-> ->> #> @> ?), containment, jsonb_path, and when NOT to reach for it.
+---
+
+{/* status: authored */}
+
+export const schema = `CREATE TABLE products (
+  id    int PRIMARY KEY,
+  name  text NOT NULL,
+  attrs jsonb NOT NULL
+);
+INSERT INTO products (id, name, attrs) VALUES
+  (1, 'Desk lamp',  '{"category":"home","price":28,"tags":["light","office"],"dims":{"w":12,"h":40}}'),
+  (2, 'Notebook',   '{"category":"stationery","price":6,"tags":["paper"],"ruled":true}'),
+  (3, 'Headphones', '{"category":"tech","price":75,"tags":["audio","office"],"wireless":true}'),
+  (4, 'Mug',        '{"category":"home","price":9,"tags":["kitchen"]}');`;
+
+# JSON & JSONB
+
+## First principles
+
+- **`json`** stores the *exact text* you gave it (whitespace, key order, duplicate
+  keys preserved). Re-parsed on every access. Rarely what you want.
+- **`jsonb`** stores a *decoded binary tree*: keys sorted, duplicates removed,
+  whitespace gone. Slightly slower to write, much faster to query, and **it can
+  be indexed**. Use `jsonb`.
+
+Use it for **genuinely schemaless / sparse** data — per-product attributes that
+differ by category, a webhook payload, feature flags. Do **not** use it as a lazy
+substitute for columns: anything you filter, join, or constrain on regularly
+should be a real typed column with a real constraint.
+
+**The operators** (the source of most confusion):
+
+| Op | Returns | Example |
+|---|---|---|
+| `->` | a `jsonb` value (keeps type) | `attrs -> 'price'` → `28` (jsonb) |
+| `->>` | `text` | `attrs ->> 'price'` → `'28'` (text) |
+| `#>` / `#>>` | value / text at a **path** | `attrs #>> '{dims,w}'` → `'12'` |
+| `@>` | does left **contain** right? (jsonb) | `attrs @> '{"category":"home"}'` |
+| `?` / `?|` / `?&` | has key / any / all keys | `attrs ? 'wireless'` |
+| `jsonb_path_query` | SQL/JSON path (`$.tags[*] ? (@ == "office")`) | powerful, PG12+ |
+
+To filter on a number you must **cast**: `(attrs ->> 'price')::numeric > 10` (the
+`->>` gives text). To match structure, use `@>` — it's what the `GIN` index
+accelerates.
+
+## The mechanism
+
+```mermaid
+flowchart LR
+    J["'{ \"a\": 1, \"b\": [2,3] }' (text)"] --> P["jsonb: parse → sorted binary tree"]
+    P --> A["attrs -> 'b' -> 0  →  2 (jsonb)"]
+    P --> C["attrs @> '{\"a\":1}'  →  true (containment)"]
+    P --> G["GIN index on attrs → fast @> and ? "]
+```
+
+## Hand-trace on dummy data
+
+`WHERE attrs @> '{"category":"home"}' AND (attrs->>'price')::numeric < 20`:
+
+<QueryTrace
+  caption="containment narrows to home items; then cast the price out of ->> and compare"
+  steps={[
+    {
+      title: "1 · products.attrs",
+      op: "attrs",
+      table: {
+        name: "products",
+        columns: ["id", "name", "attrs.category", "attrs.price"],
+        rows: [[1,"Desk lamp","home",28],[2,"Notebook","stationery",6],[3,"Headphones","tech",75],[4,"Mug","home",9]],
+      },
+    },
+    {
+      title: "2 · attrs @> '{\"category\":\"home\"}' — structural containment",
+      op: "attrs",
+      table: {
+        columns: ["id", "name", "category", "@> home?"],
+        rows: [[1,"Desk lamp","home","yes"],[2,"Notebook","stationery","no"],[3,"Headphones","tech","no"],[4,"Mug","home","yes"]],
+      },
+      rows: { drop: [1, 2] },
+    },
+    {
+      title: "3 · AND (attrs ->> 'price')::numeric < 20 — text out, cast, compare",
+      op: "attrs",
+      table: {
+        columns: ["id", "name", "price (::numeric)", "< 20?"],
+        rows: [[1,"Desk lamp",28,"no"],[4,"Mug",9,"yes"]],
+      },
+      rows: { drop: [0] },
+    },
+    {
+      title: "4 · result",
+      table: {
+        name: "result",
+        result: true,
+        columns: ["id", "name", "price"],
+        rows: [[4,"Mug",9]],
+      },
+    },
+  ]}
+/>
+
+## Run it
+
+<SqlRunner title="the operator zoo" setup={schema}>
+{`SELECT name,
+  attrs -> 'price'            AS price_jsonb,   -- 28  (jsonb)
+  attrs ->> 'price'           AS price_text,    -- '28' (text)
+  (attrs ->> 'price')::numeric AS price_num,    -- 28   (numeric)
+  attrs #>> '{dims,h}'        AS height,        -- path
+  attrs ? 'wireless'          AS has_wireless,
+  attrs -> 'tags'             AS tags
+FROM products ORDER BY id;`}
+</SqlRunner>
+
+<SqlRunner title="containment (@>) and key tests — the GIN-indexable ones" setup={schema}>
+{`CREATE INDEX idx_attrs ON products USING GIN (attrs);
+SELECT name FROM products WHERE attrs @> '{"category":"home"}' ORDER BY name;
+SELECT name FROM products WHERE attrs @> '{"tags":["office"]}' ORDER BY name;   -- array containment
+EXPLAIN SELECT name FROM products WHERE attrs @> '{"category":"tech"}';`}
+</SqlRunner>
+
+<SqlRunner title="expand arrays and objects into rows" setup={schema}>
+{`-- one row per (product, tag)
+SELECT p.name, t AS tag
+FROM products p, jsonb_array_elements_text(p.attrs -> 'tags') AS t
+ORDER BY p.name, tag;
+
+-- one row per (product, key, value)
+SELECT p.name, kv.key, kv.value
+FROM products p, jsonb_each(p.attrs) AS kv
+WHERE p.id = 1;`}
+</SqlRunner>
+
+<SqlRunner title="modify a jsonb document" setup={schema}>
+{`UPDATE products
+SET attrs = jsonb_set(attrs, '{price}', to_jsonb((attrs->>'price')::numeric * 1.1))
+WHERE id = 1
+RETURNING name, attrs ->> 'price' AS new_price;
+
+UPDATE products SET attrs = attrs || '{"clearance": true}' WHERE id = 4
+RETURNING name, attrs;`}
+</SqlRunner>
+
+<RunThis file="sql/foundations/34_json_and_jsonb/topic.sql" />
+
+## Build → Break → Fix → Why
+
+:::tip[🔨 Build]
+Sparse per-category attributes in `attrs jsonb`, a `GIN` index, and queries with
+`attrs @> '{...}'`. Anything universal (`price`, `category`) is *also* a real
+column with a `CHECK` / `NOT NULL`.
+:::
+
+:::danger[💥 Break]
+Put everything — including `price`, `status`, `customer_id` — only in `attrs`,
+and filter with `(attrs->>'price')::numeric`. Every such query is a full scan
+(the expression isn't indexed), there's no type safety (`'price': "twenty"`
+inserts fine), no foreign key, and a typo'd key (`prise`) fails silently by
+returning `NULL`.
+:::
+
+:::note[🔧 Fix]
+- Columns for what's structured and queried; `jsonb` for what's sparse.
+- `GIN` index for `@>` / `?`. For one hot scalar path, an **expression index**:
+  `CREATE INDEX ON products (((attrs->>'price')::numeric))`.
+- Validate on write with a `CHECK (jsonb_typeof(attrs->'price') = 'number')` or
+  application-side schema.
+:::
+
+:::info[🧠 Why it behaved that way]
+`->>` always yields `text`, so `(attrs->>'price') > 10` compares strings
+(`'6' > '10'` is *true*!) until you cast. A plain `GIN(attrs)` index accelerates
+containment and key-existence because those map to "which rows have this
+key/value pair" — exactly what GIN's inverted structure answers — but it does
+*not* help `(attrs->>'x')::int > 5`, which is an arbitrary computed predicate
+needing its own expression index.
+:::
+
+## Pitfalls & idioms
+
+- `->` keeps jsonb, `->>` gives text. Cast before comparing numbers or dates.
+- `@>` for "matches this shape" (indexable). `=` compares whole documents.
+- A missing key returns `NULL`, not an error — typos are silent.
+- `jsonb || jsonb` merges (shallow); `jsonb_set` writes a path; `#- '{path}'`
+  deletes.
+- `GIN (attrs jsonb_path_ops)` is smaller/faster but only supports `@>`.
+- Don't index the whole document if you only ever query one path — expression
+  index that path.
+- `jsonb_array_elements` / `jsonb_each` in `FROM` (as a lateral set-returning
+  function) to explode into rows — see [LATERAL joins](/foundations/lateral-joins).
+- Big documents you never query into: consider a `text` column or external
+  storage; jsonb parsing has a cost.
+
+## See also
+
+- [Index types](/foundations/index-types) — GIN, `jsonb_path_ops`, expression indexes
+- [LATERAL joins & set-returning functions](/foundations/lateral-joins) — exploding arrays
+- [Generated columns, domains & custom types](/foundations/generated-columns-domains-and-types) — promote a hot path to a column
+- [Constraints & keys](/foundations/constraints-and-keys) — what jsonb can't enforce
+
+## Check yourself
+
+1. `json` vs `jsonb` — which do you pick, and what does the other keep that this
+   one drops?
+2. `attrs -> 'price'` vs `attrs ->> 'price'` — types, and why it matters for
+   `> 10`.
+3. Which operators does a plain `GIN(attrs)` index accelerate?
+4. `WHERE attrs @> '{"tags":["office"]}'` — what does this match?
+5. You constantly filter `WHERE (attrs->>'sku') = $1`. What index?

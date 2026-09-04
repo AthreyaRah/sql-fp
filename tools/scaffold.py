@@ -52,6 +52,16 @@ FOUNDATIONS = [
     ("reading-query-plans", "Reading query plans: EXPLAIN & EXPLAIN ANALYZE"),
     ("query-optimization", "Query optimization: sargability, stats, join algorithms"),
     ("views-and-materialized-views", "Views & materialized views"),
+    ("dates-times-and-time-zones", "Dates, times, intervals & time zones"),
+    ("text-pattern-matching-and-regex", "Text: pattern matching, regex & full-text basics"),
+    ("json-and-jsonb", "JSON & JSONB"),
+    ("arrays", "Arrays"),
+    ("lateral-joins", "LATERAL joins & set-returning functions"),
+    ("generated-columns-domains-and-types", "Generated columns, domains & custom types"),
+    ("triggers-and-plpgsql", "Triggers & PL/pgSQL basics"),
+    ("roles-privileges-and-row-level-security", "Roles, privileges & row-level security"),
+    ("bulk-loading-and-copy", "Bulk loading: COPY, \\\\copy & staging tables"),
+    ("numeric-precision-money-and-rounding", "Numeric precision, money & rounding"),
 ]
 
 BACKEND = [
