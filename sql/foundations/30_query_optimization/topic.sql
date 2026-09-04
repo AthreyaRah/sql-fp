@@ -26,8 +26,8 @@ INSERT INTO orders
 SELECT g, (g % 20000) + 1,
        (ARRAY['paid', 'pending', 'cancelled'])[1 + (g % 3)],
        (g % 500) + 1,
-       TIMESTAMPTZ '2024-01-01' + (g || ' minutes')::interval
-FROM generate_series(1, 200000) g;
+       TIMESTAMPTZ '2024-01-01' + ((g * 6) || ' minutes')::interval
+FROM generate_series(1, 40000) g;
 ANALYZE users;
 ANALYZE orders;
 
@@ -42,7 +42,7 @@ WHERE created_at >= TIMESTAMPTZ '2024-02-01' AND created_at < TIMESTAMPTZ '2024-
 
 SELECT count(*) AS feb1 FROM orders
 WHERE created_at >= TIMESTAMPTZ '2024-02-01' AND created_at < TIMESTAMPTZ '2024-02-02';
--- expect: 1440
+-- expect: 240  (one row every 6 minutes)
 
 -- ==== Join algorithm shifts with selectivity =====================
 EXPLAIN SELECT u.email, count(*) FROM users u JOIN orders o USING (user_id)

@@ -27,8 +27,8 @@ INSERT INTO orders
 SELECT g, (g % 30000) + 1,
        (ARRAY['paid','pending','cancelled','refunded'])[1+(g%4)],
        (g % 900) + 1,
-       TIMESTAMPTZ '2024-01-01' + (g||' minutes')::interval
-FROM generate_series(1, 300000) g;
+       TIMESTAMPTZ '2024-01-01' + ((g*10)||' minutes')::interval
+FROM generate_series(1, 50000) g;
 ANALYZE customers; ANALYZE orders;`;
 
 # Reading EXPLAIN plans & query optimization
@@ -50,25 +50,26 @@ LIMIT 20;
 ```
 
 Fresh schema, only primary-key indexes. Run `EXPLAIN (ANALYZE, BUFFERS)` and you
-get something like:
+get something like this (numbers scale with table size — the *shape* is the
+point):
 
 ```
-Limit  (actual time=48.2..48.2 rows=20 loops=1)
-  ->  Sort  (actual time=48.2..48.2 rows=20 loops=1)
+Limit  (actual time=9.4..9.4 rows=20 loops=1)
+  ->  Sort  (actual time=9.4..9.4 rows=20 loops=1)
         Sort Key: o.created_at DESC
         Sort Method: top-N heapsort  Memory: 27kB
-        ->  Nested Loop  (actual time=0.3..47.1 rows=1900 loops=1)
+        ->  Nested Loop  (actual time=0.1..8.9 rows=300 loops=1)
               ->  Index Scan using customers_pkey on customers c  (rows=1 loops=1)
-              ->  Seq Scan on orders o  (actual time=0.1..44.0 rows=1900 loops=1)
+              ->  Seq Scan on orders o  (actual time=0.1..8.4 rows=300 loops=1)
                     Filter: (customer_id = 12345 AND status = 'paid' AND created_at >= ...)
-                    Rows Removed by Filter: 298100
-        Buffers: shared hit=2451
+                    Rows Removed by Filter: 49700
+        Buffers: shared hit=410
 ```
 
 ## Reading it, bottom-up
 
 <QueryTrace
-  caption="the cost is in the Seq Scan on orders: 300k rows read, 298k thrown away"
+  caption="the cost is in the Seq Scan on orders: every row read, almost all thrown away"
   steps={[
     {
       title: "1 · Index Scan on customers — customer_id = 12345 → 1 row (fine, PK)",
@@ -79,20 +80,20 @@ Limit  (actual time=48.2..48.2 rows=20 loops=1)
       },
     },
     {
-      title: "2 · Seq Scan on orders — reads ALL 300,000, keeps 1,900",
+      title: "2 · Seq Scan on orders — reads ALL 50,000, keeps ~300",
       op: "customer_id",
       table: {
         columns: ["node", "rows read", "Rows Removed by Filter", "verdict"],
-        rows: [["Seq Scan on orders", "300,000", "298,100", "✗ this is the problem"]],
+        rows: [["Seq Scan on orders", "50,000", "49,700", "✗ this is the problem"]],
       },
       rows: { drop: [0] },
     },
     {
-      title: "3 · Nested Loop joins them (1 × 1,900) — then Sort top-20 by created_at DESC",
+      title: "3 · Nested Loop joins them (1 × 300) — then Sort top-20 by created_at DESC",
       op: "created_at",
       table: {
         columns: ["node", "actual rows", "note"],
-        rows: [["Nested Loop", "1,900", "cheap once orders is filtered"],["Sort (top-N)", "20", "small — but avoidable with an ordered index"]],
+        rows: [["Nested Loop", "300", "cheap once orders is filtered"],["Sort (top-N)", "20", "small — but avoidable with an ordered index"]],
       },
     },
     {
@@ -109,7 +110,7 @@ Limit  (actual time=48.2..48.2 rows=20 loops=1)
 
 **The tells:**
 
-- `Seq Scan on orders` + `Rows Removed by Filter: 298100` → a selective predicate
+- `Seq Scan on orders` + `Rows Removed by Filter: 49700` → a selective predicate
   with no supporting index.
 - `Sort` on `created_at DESC` → could be free if the index were ordered that way.
 - `Nested Loop` is fine here — the outer side is genuinely 1 row.
@@ -137,7 +138,7 @@ Limit  (actual time=0.05..0.09 rows=20 loops=1)
   Buffers: shared hit=6
 ```
 
-48 ms → 0.09 ms. 2451 buffers → 6. No `Sort`.
+~9 ms → ~0.05 ms.  410 buffers → 6.  No `Sort`.
 
 ## Run it
 
@@ -251,7 +252,7 @@ by exactly that tuple, so a single descend-and-scan satisfies the `=` conditions
 
 ## Check yourself
 
-1. `Seq Scan` + `Rows Removed by Filter: 300000` — what does it mean and what do
+1. `Seq Scan` + `Rows Removed by Filter: 49700` — what does it mean and what do
    you add?
 2. Why does `ORDER BY created_at DESC LIMIT 20` add a `Sort` node, and how does an
    index remove it?

@@ -27,8 +27,8 @@ INSERT INTO orders
 SELECT g, (g % 30000) + 1,
        (ARRAY['paid', 'pending', 'cancelled', 'refunded'])[1 + (g % 4)],
        (g % 900) + 1,
-       TIMESTAMPTZ '2024-01-01' + (g || ' minutes')::interval
-FROM generate_series(1, 300000) g;
+       TIMESTAMPTZ '2024-01-01' + ((g * 10) || ' minutes')::interval
+FROM generate_series(1, 50000) g;
 ANALYZE customers;
 ANALYZE orders;
 
