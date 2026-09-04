@@ -85,6 +85,19 @@ BACKEND = [
 DATA_ENGINEERING = [
     ("dimensional-modeling-star-schema", "Dimensional modeling: the star schema"),
     ("slowly-changing-dimensions-type-2", "Slowly Changing Dimensions — Type 2"),
+    ("oltp-vs-olap-and-columnar", "OLTP vs OLAP; row stores vs column stores"),
+    ("grain-and-measure-additivity", "Grain & measure additivity, in depth"),
+    ("scd-types-1-3-4-6", "SCD Types 0, 1, 3, 4 & 6"),
+    ("incremental-loads-and-watermarks", "Incremental loads & watermarks"),
+    ("deduplication-and-data-quality", "Deduplication & data-quality checks"),
+    ("sessionization-with-window-functions", "Sessionization with window functions"),
+    ("pivot-and-unpivot", "Pivot & unpivot"),
+    ("the-date-dimension-and-gap-filling", "The date dimension & filling time-series gaps"),
+    ("rollup-and-summary-tables", "Rollup & summary tables"),
+    ("bridge-tables", "Bridge tables for many-to-many in a star schema"),
+    ("late-arriving-data", "Late-arriving dimensions & facts"),
+    ("table-partitioning", "Declarative partitioning & partition pruning"),
+    ("brin-and-append-only-tables", "BRIN indexes for append-only fact tables"),
 ]
 
 TRACKS = {

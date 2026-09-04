@@ -1,0 +1,232 @@
+---
+title: "Pivot & unpivot"
+sidebar_position: 10
+slug: /data-engineering/pivot-and-unpivot
+description: Turning rows into columns (FILTER / CASE aggregation, crosstab) and columns into rows (UNION ALL, unnest) — and why the tall form is usually the right storage.
+---
+
+{/* status: authored */}
+
+export const schema = `-- long / tall form: one row per (region, month, metric value)
+CREATE TABLE sales_long (
+  region text NOT NULL,
+  month  text NOT NULL,      -- 'Jan','Feb','Mar'
+  revenue numeric NOT NULL
+);
+INSERT INTO sales_long VALUES
+  ('EU','Jan',100), ('EU','Feb',120), ('EU','Mar',90),
+  ('US','Jan',200), ('US','Feb',210), ('US','Mar',260);
+
+-- wide form: one row per region, a column per month
+CREATE TABLE sales_wide (
+  region text PRIMARY KEY,
+  jan numeric, feb numeric, mar numeric
+);
+INSERT INTO sales_wide VALUES ('EU',100,120,90), ('US',200,210,260);`;
+
+# Pivot & unpivot
+
+## First principles
+
+- **Long / tall / narrow**: one row per observation — `(region, month, value)`.
+  Flexible, easy to filter/aggregate/extend, and the right shape to **store**.
+- **Wide / crosstab**: one row per entity, one column per category —
+  `(region, jan, feb, mar)`. The shape a **report or a spreadsheet** wants.
+
+**Pivot** = long → wide. **Unpivot** = wide → long. Both are query-time
+reshaping; you keep the data long.
+
+### Pivot (long → wide)
+
+Conditional aggregation — one aggregate per output column:
+
+```sql
+SELECT region,
+  sum(revenue) FILTER (WHERE month = 'Jan') AS jan,
+  sum(revenue) FILTER (WHERE month = 'Feb') AS feb,
+  sum(revenue) FILTER (WHERE month = 'Mar') AS mar
+FROM sales_long
+GROUP BY region;
+```
+
+`FILTER (WHERE ...)` is the clean modern form; older code uses `sum(CASE WHEN
+month='Jan' THEN revenue END)`. The `tablefunc` extension's `crosstab()` does it
+too, but you must declare the column list — no better than `FILTER` for a fixed
+set.
+
+**The column list must be known at query-write time.** SQL results have a fixed
+column set, so a *dynamic* pivot ("a column per month, whatever months exist")
+needs code that builds the SQL string, or returning `jsonb` and letting the app
+spread it.
+
+### Unpivot (wide → long)
+
+`UNION ALL` one `SELECT` per source column, or `unnest` parallel arrays, or a
+`LATERAL` + `VALUES`:
+
+```sql
+SELECT region, m.month, m.revenue
+FROM sales_wide
+CROSS JOIN LATERAL (VALUES
+  ('Jan', jan), ('Feb', feb), ('Mar', mar)
+) AS m(month, revenue);
+```
+
+## The mechanism
+
+```mermaid
+flowchart LR
+    L["long: (EU,Jan,100)(EU,Feb,120)…"] -->|"pivot: GROUP BY region + FILTER per month"| W["wide: (EU,100,120,90)"]
+    W -->|"unpivot: LATERAL VALUES / UNION ALL"| L2["long again"]
+```
+
+## Hand-trace on dummy data
+
+Pivot `sales_long` to a month-per-column report:
+
+<QueryTrace
+  caption="GROUP BY region collapses to one row; each FILTERed aggregate fills one month column"
+  steps={[
+    {
+      title: "1 · sales_long — one row per (region, month)",
+      table: {
+        name: "sales_long",
+        columns: ["region", "month", "revenue"],
+        rows: [["EU","Jan",100],["EU","Feb",120],["EU","Mar",90],["US","Jan",200],["US","Feb",210],["US","Mar",260]],
+      },
+    },
+    {
+      title: "2 · GROUP BY region — two groups",
+      op: "region",
+      table: {
+        columns: ["region", "month", "revenue"],
+        rows: [["EU","Jan",100],["EU","Feb",120],["EU","Mar",90],["US","Jan",200],["US","Feb",210],["US","Mar",260]],
+      },
+      groups: [{ label: "EU", rows: [0, 1, 2] }, { label: "US", rows: [3, 4, 5] }],
+    },
+    {
+      title: "3 · per group: sum(revenue) FILTER (WHERE month = 'Jan'/'Feb'/'Mar')",
+      op: "month",
+      table: {
+        columns: ["region", "jan = sum FILTER Jan", "feb", "mar"],
+        rows: [["EU","100","120","90"],["US","200","210","260"]],
+      },
+    },
+    {
+      title: "4 · result — wide, report-ready",
+      table: {
+        name: "result",
+        result: true,
+        columns: ["region", "jan", "feb", "mar"],
+        rows: [["EU",100,120,90],["US",200,210,260]],
+      },
+    },
+  ]}
+/>
+
+## Run it
+
+<SqlRunner title="pivot: FILTER aggregation" setup={schema}>
+{`SELECT region,
+  sum(revenue) FILTER (WHERE month = 'Jan') AS jan,
+  sum(revenue) FILTER (WHERE month = 'Feb') AS feb,
+  sum(revenue) FILTER (WHERE month = 'Mar') AS mar,
+  sum(revenue)                              AS total
+FROM sales_long
+GROUP BY region
+ORDER BY region;`}
+</SqlRunner>
+
+<SqlRunner title="unpivot: LATERAL VALUES" setup={schema}>
+{`SELECT w.region, m.month, m.revenue
+FROM sales_wide w
+CROSS JOIN LATERAL (VALUES
+  ('Jan', w.jan), ('Feb', w.feb), ('Mar', w.mar)
+) AS m(month, revenue)
+ORDER BY w.region, m.month;`}
+</SqlRunner>
+
+<SqlRunner title="dynamic pivot → jsonb (unknown column set)" setup={schema}>
+{`-- one JSON object per region: {"Jan":100,"Feb":120,...}
+SELECT region, jsonb_object_agg(month, revenue ORDER BY month) AS by_month
+FROM sales_long
+GROUP BY region
+ORDER BY region;`}
+</SqlRunner>
+
+<SqlRunner title="pivot a count, not a sum (a contingency table)" setup={schema}>
+{`CREATE TEMP TABLE tickets (id int, team text, priority text);
+INSERT INTO tickets VALUES (1,'infra','high'),(2,'infra','low'),(3,'infra','high'),(4,'app','low'),(5,'app','high');
+
+SELECT team,
+  count(*) FILTER (WHERE priority = 'high') AS high,
+  count(*) FILTER (WHERE priority = 'low')  AS low
+FROM tickets GROUP BY team ORDER BY team;`}
+</SqlRunner>
+
+<RunThis file="sql/data-engineering/09_pivot_and_unpivot/topic.sql" />
+
+## Build → Break → Fix → Why
+
+:::tip[🔨 Build]
+Store long (`sales_long`). Pivot for reports with `sum(x) FILTER (WHERE cat =
+'...')` per output column. When the categories vary, `jsonb_object_agg` and let
+the presentation layer spread it.
+:::
+
+:::danger[💥 Break]
+Store data **wide** — a `metrics` table with columns `jan_2024, feb_2024,
+mar_2024, ...`. Every new month is a schema migration; "revenue for Q1" is
+`jan + feb + mar` (a formula you rewrite each quarter); "months where revenue
+dropped" needs an unpivot before you can even ask; and the table has 60 nullable
+columns.
+:::
+
+:::note[🔧 Fix]
+- **Store long**, pivot at query time.
+- Fixed, known category set → `FILTER` aggregation.
+- Unknown/growing set → `jsonb_object_agg`, or generated SQL, or unpivot-then-
+  process.
+- Unpivot a wide source with `LATERAL (VALUES ...)` or `UNION ALL`.
+:::
+
+:::info[🧠 Why it behaved that way]
+A SQL query's output has a **fixed column list** determined when the query is
+parsed — so "a column per category" only works when you can name the categories
+in the SQL. `FILTER` aggregation is just `GROUP BY` with a per-column predicate
+on the aggregate. Long storage keeps categories as *data* (rows), which you can
+add, filter, and aggregate without touching the schema; wide storage makes
+categories *structure*, so every category change is DDL and every cross-category
+question is arithmetic on column names.
+:::
+
+## Pitfalls & idioms
+
+- `FILTER (WHERE ...)` over `CASE` inside the aggregate — clearer, and works for
+  `count`, `sum`, `avg`, etc.
+- `NULL` from a `FILTER` that matched nothing — `coalesce(..., 0)` if the report
+  wants zeros.
+- Dynamic pivot: `jsonb_object_agg` for an API; `crosstab()` (tablefunc) still
+  needs a static column definition; a stored proc that builds `EXECUTE`
+  `format(...)` for a truly dynamic result set.
+- Unpivot: `UNION ALL` is portable; `LATERAL (VALUES ...)` is compact and does
+  one table scan.
+- Pivoting for a spreadsheet export is fine; pivoting *into storage* is the
+  anti-pattern.
+- `GROUPING SETS` ([foundations](/foundations/grouping-sets-rollup-cube)) adds
+  subtotals to a pivot.
+
+## See also
+
+- [Aggregation & GROUP BY](/foundations/group-by-and-aggregation) — `FILTER`, conditional aggregates
+- [LATERAL joins & set-returning functions](/foundations/lateral-joins) — unpivot with `VALUES`
+- [JSON & JSONB](/foundations/json-and-jsonb) — `jsonb_object_agg` for dynamic pivots
+- [GROUPING SETS, ROLLUP, CUBE](/foundations/grouping-sets-rollup-cube) — subtotals
+
+## Check yourself
+
+1. Long vs wide — which do you store, and why?
+2. Write the pivot of `(region, month, revenue)` to month columns using `FILTER`.
+3. Why can't you write a pivot with a column count that depends on the data?
+4. Two ways to unpivot a wide table.
+5. When is `jsonb_object_agg` the right pivot tool?

@@ -39,18 +39,24 @@ breaks" is a script that really breaks.
   </div>
 </div>
 
-## The three tracks
+## The three tracks — 71 topics
 
-- **[Foundations](/foundations/)** — the SQL common core, in dependency order:
-  the relational model, `NULL`, joins, aggregation, subqueries, CTEs, window
-  functions, transactions, isolation, indexes, and reading query plans. Work
-  top to bottom the first time.
-- **[Backend Engineering](/backend/)** — SQL as the storage layer behind an API:
-  keyset pagination, the N+1 problem, `EXPLAIN`-driven optimization, schema
-  design, locking, JSONB, full-text search, safe migrations.
-- **[Data Engineering](/data-engineering/)** — SQL as the transformation layer in
-  a warehouse: dimensional modeling, slowly changing dimensions, incremental
-  loads, deduplication, sessionization, partitioning.
+- **[Foundations](/foundations/)** (41) — the SQL common core, in dependency
+  order: the relational model, `NULL` & three-valued logic, joins, aggregation,
+  subqueries, CTEs, window functions, transactions, isolation & MVCC, indexes,
+  reading query plans and optimization — then dates & time zones, text & regex,
+  JSON/JSONB, arrays, `LATERAL`, triggers, roles & RLS, bulk loading, and money
+  arithmetic. Work top to bottom the first time.
+- **[Backend Engineering](/backend/)** (15) — SQL as the storage layer behind an
+  API: keyset pagination & N+1, `EXPLAIN`-driven optimization, normalization,
+  keys, relationship modeling, soft deletes & audit, optimistic/pessimistic
+  locking, write skew, JSONB & full-text search, enums vs lookup tables, safe
+  online migrations, idempotency keys, connection pooling.
+- **[Data Engineering](/data-engineering/)** (15) — SQL as the transformation
+  layer in a warehouse: OLTP vs OLAP, dimensional modeling, grain & additivity,
+  every SCD type, incremental loads & watermarks, deduplication & data quality,
+  sessionization, pivot/unpivot, the date dimension, rollup tables, bridge
+  tables, late-arriving data, partitioning, BRIN.
 
 ## Start here
 

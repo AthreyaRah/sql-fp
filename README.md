@@ -9,13 +9,13 @@ Sibling project of [python-fp](https://github.com/AthreyaRah/python-fp).
 
 **Live site:** https://athreyarah.github.io/sql-fp/
 
-## Tracks
+## Tracks — 71 topics, all complete
 
-| Track | What it covers | Status |
+| Track | Topics | Covers |
 |---|---|---|
-| **Foundations** (31 topics) | relational model, `NULL` & 3VL, processing order, joins, aggregation, subqueries, CTEs, window functions, transactions, isolation/MVCC, indexes, reading query plans, optimization, views | complete |
-| **Backend Engineering** | keyset pagination & N+1, `EXPLAIN`-driven optimization (+ backlog) | 2 flagship topics; more on the way |
-| **Data Engineering** | dimensional modeling (star schema), Slowly Changing Dimensions Type 2 (+ backlog) | 2 flagship topics; more on the way |
+| **Foundations** | 41 | relational model, `NULL` & 3VL, processing order, joins (inner/outer/self/semi/anti), aggregation, `GROUPING SETS`, subqueries, CTEs & recursion, window functions & frames, set ops, `DISTINCT ON`, DML, upsert/`MERGE`, constraints, transactions/ACID, isolation & MVCC, indexes & the B-tree, index types, reading `EXPLAIN`, query optimization, views — plus dates & time zones, text/regex, JSON/JSONB, arrays, `LATERAL`, generated columns & domains, triggers & PL/pgSQL, roles & RLS, bulk loading, numeric/money |
+| **Backend Engineering** | 15 | keyset pagination & N+1, `EXPLAIN`-driven optimization, normalization, surrogate/natural keys, relationship modeling, soft deletes & audit, optimistic/pessimistic locking, write skew, `EXISTS` vs `IN` vs `JOIN`, JSONB + GIN, full-text search, enums vs lookup tables, safe online migrations, idempotency keys, connection pooling |
+| **Data Engineering** | 15 | OLTP vs OLAP & columnar, dimensional modeling, grain & additivity, SCD Types 0–6, incremental loads & watermarks, dedup & data quality, sessionization, pivot/unpivot, the date dimension, rollup tables, bridge tables, late-arriving data, partitioning, BRIN |
 
 ## How it works
 
@@ -60,9 +60,9 @@ cd tools && pytest                      # same, as parametrized tests
 ```
 docs/
   index.mdx  how-to-use.mdx
-  foundations/   31 topic .mdx + index
-  backend/       topics + index (backlog listed)
-  data-engineering/ topics + index (backlog listed)
+  foundations/       41 topic .mdx + index
+  backend/           15 topic .mdx + index
+  data-engineering/  15 topic .mdx + index
   appendix/      glossary, cheatsheets, check-yourself answers, run-locally
 src/components/
   QueryTrace/    the step-by-step hand-trace component
@@ -89,8 +89,8 @@ rewrites.
 
 ## Contributing
 
-Corrections, new Backend/Data-Engineering topics, and additional dialects
-welcome. A topic is a `docs/<track>/<nn>-<slug>.mdx` page **and** a matching
+Corrections and additional SQL dialects welcome. A topic is a
+`docs/<track>/<nn>-<slug>.mdx` page **and** a matching
 `sql/<track>/<nn>_<slug>/topic.sql` that CI runs; keep the seed data in the
 script identical to the page's hand-trace. `python tools/scaffold.py` creates
 stubs from the curriculum list.
