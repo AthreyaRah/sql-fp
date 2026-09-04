@@ -1,0 +1,123 @@
+.runner {
+  margin: 1.5rem 0;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--ifm-background-surface-color);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--ifm-color-emphasis-100);
+  border-bottom: 1px solid var(--ifm-color-emphasis-300);
+  font-size: 0.8rem;
+}
+
+.badge {
+  font-family: var(--ifm-font-family-monospace);
+  color: var(--ifm-color-emphasis-600);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.btn {
+  font: inherit;
+  font-size: 0.8rem;
+  border: 1px solid var(--ifm-color-emphasis-400);
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+  border-radius: 6px;
+  padding: 0.25rem 0.7rem;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-primary);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.run {
+  border-color: var(--ifm-color-primary);
+  background: var(--ifm-color-primary);
+  color: #fff;
+  font-weight: 600;
+}
+.run:hover:not(:disabled) {
+  background: var(--ifm-color-primary-dark);
+  color: #fff;
+}
+
+.editor {
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  padding: 0.7rem 0.8rem;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.83rem;
+  line-height: 1.5;
+  resize: vertical;
+  background: transparent;
+  color: var(--ifm-font-color-base);
+  tab-size: 2;
+}
+.editor:focus {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: -2px;
+}
+
+.output {
+  border-top: 1px solid var(--ifm-color-emphasis-300);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.82rem;
+  max-height: 22rem;
+  overflow: auto;
+}
+
+.hint {
+  color: var(--ifm-color-emphasis-600);
+  font-style: italic;
+}
+
+.error {
+  color: #d33;
+  font-family: var(--ifm-font-family-monospace);
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.ok {
+  color: #2a8a4a;
+  font-family: var(--ifm-font-family-monospace);
+}
+
+.grid {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  width: auto;
+}
+.grid th,
+.grid td {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  padding: 0.25rem 0.6rem;
+  text-align: left;
+  white-space: nowrap;
+}
+.grid th {
+  background: var(--ifm-color-emphasis-100);
+  font-family: var(--ifm-font-family-monospace);
+}
+.null {
+  color: var(--ifm-color-emphasis-500);
+  font-style: italic;
+}
+.rowcount {
+  margin: 0.4rem 0 0;
+  color: var(--ifm-color-emphasis-600);
+}

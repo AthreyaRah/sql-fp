@@ -1,0 +1,4 @@
+# Tooling only. The SQL scripts themselves need nothing but a `psql` client, and
+# their correctness gate is the Postgres harness (tools/run_sql.py) — every
+# script runs end-to-end in CI under `ON_ERROR_STOP=1`.
+pytest==8.3.4

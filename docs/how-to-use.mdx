@@ -1,0 +1,114 @@
+---
+title: How to use this site
+sidebar_position: 2
+---
+
+import SqlRunner from '@site/src/components/SqlRunner';
+import QueryTrace from '@site/src/components/QueryTrace';
+
+# How to use this site
+
+## Nothing to install
+
+Every topic has a **live SQL editor**. It runs a real PostgreSQL engine
+([PGlite](https://pglite.dev) — Postgres compiled to WebAssembly) **inside this
+page**. No server, no signup, no `psql`. The tables you see in the hand-trace are
+already created; press **Run**, edit the query, run it again.
+
+<SqlRunner
+  title="try it"
+  setup={`CREATE TABLE customers (customer_id int, name text, city text);
+INSERT INTO customers VALUES
+  (1,'Ana','Berlin'), (2,'Ben','Berlin'), (3,'Chidi','Lagos'), (4,'Dana','Toronto');`}>
+{`-- edit me, then press Run (or Cmd/Ctrl+Enter)
+SELECT city, count(*) AS customers
+FROM customers
+GROUP BY city
+ORDER BY customers DESC;`}
+</SqlRunner>
+
+- **First Run** on a page downloads the ~3 MB engine (once, cached). After that
+  it's instant.
+- Each editor has its **own throwaway database**, seeded fresh. **Reset** puts
+  the starting query and a clean database back.
+- It's real Postgres 16+: `EXPLAIN`, CTEs, window functions, `MERGE`,
+  transactions — all work. The only missing piece is parallel query (one WASM
+  thread), which barely matters at these table sizes.
+
+Prefer a real local database (to run the repo's scripts, or use pgAdmin)? That's
+optional: [Appendix → Run locally](/appendix/run-locally).
+
+## Read in order, at least the first time
+
+Within a track the topics are numbered because each leans on the ones before it.
+In **Foundations** especially: [joins](/foundations/inner-join) assume
+[logical processing order](/foundations/logical-query-processing-order), and
+[window frames](/foundations/window-frames) assume
+[window functions](/foundations/window-functions-partitioning-and-ranking).
+
+If you already know the material, use the numbers as a checklist: can you do the
+**Break** and **Why** of each topic without looking? If not, you found a gap.
+
+## The hand-trace diagrams
+
+The step-by-step tables are the core of each page: the operation walked across a
+handful of real rows, ending in the result. Here is
+`SELECT city FROM customers` becoming a bag, then `DISTINCT` making it a set:
+
+<QueryTrace
+  caption="how to read a trace"
+  steps={[
+    {
+      title: "1 · customers — the base rows",
+      table: {
+        name: "customers",
+        columns: ["customer_id", "name", "city"],
+        rows: [[1,"Ana","Berlin"],[2,"Ben","Berlin"],[3,"Chidi","Lagos"],[4,"Dana","Toronto"]],
+      },
+    },
+    {
+      title: "2 · SELECT city — project; duplicates stay",
+      op: "city",
+      table: { columns: ["city"], rows: [["Berlin"],["Berlin"],["Lagos"],["Toronto"]] },
+      rows: { match: [0, 1] },
+    },
+    {
+      title: "3 · SELECT DISTINCT city — the result",
+      op: "city",
+      table: { name: "result", result: true, columns: ["city"], rows: [["Berlin"],["Lagos"],["Toronto"]] },
+    },
+  ]}
+/>
+
+| You see | It means |
+|---|---|
+| A column with an accent border + tinted header | the column **this step operates on** (`WHERE` predicate, `GROUP BY` key, `JOIN` column, aggregated column) |
+| A row dimmed and struck through | **removed** by this step (failed a filter, no join match) |
+| A row tinted green | **added** by this step (a new version, an `INSERT`, an outer-join non-match) |
+| A row tinted blue | **matched** a predicate or join in this step |
+| Rows in labelled bands | a **partition** — one `GROUP BY` group or window `PARTITION BY` |
+| `NULL` in grey italics | a real SQL `NULL`, not the text `'NULL'` |
+| A green border + "result" tag | the **final answer** |
+
+## The four scenarios
+
+Every topic ends with four short scenarios:
+
+- **🔨 Build** — a minimal query that works.
+- **💥 Break** — one change, and the exact wrong answer or error it produces.
+  Reproduce it in the page's editor.
+- **🔧 Fix** — the correction, and why it's right and not a workaround.
+- **🧠 Why it behaved that way** — the failure explained through the mechanism
+  from the top of the page. This is the part that transfers.
+
+## Check yourself
+
+Every topic ends with five questions. Answer them from memory before moving on.
+Worked answers: [Appendix → Check yourself: answers](/appendix/check-yourself-answers).
+
+## Why static traces, and what v2 changes
+
+v1 shows every step at once, stacked, so you can scan a whole query's execution
+on one screen. v2 adds an optional **step mode** — the same trace, one step at a
+time, with *Next* / *Prev* and the rows animating between states. Same underlying
+data; no page gets rewritten.

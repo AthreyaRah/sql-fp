@@ -1,0 +1,226 @@
+---
+title: "Modifying data: INSERT, UPDATE, DELETE, RETURNING"
+sidebar_position: 23
+slug: /foundations/modifying-data
+description: The write statements, the set-based mindset, RETURNING, UPDATE ... FROM, DELETE ... USING, and data-modifying CTEs.
+---
+
+{/* status: authored */}
+
+export const schema = `CREATE TABLE products (
+  product_id int PRIMARY KEY,
+  name       text NOT NULL,
+  price      numeric NOT NULL,
+  archived   boolean NOT NULL DEFAULT false
+);
+CREATE TABLE price_bumps (product_id int, pct numeric);
+INSERT INTO products (product_id, name, price) VALUES
+  (1,'Notebook', 6),
+  (2,'Desk lamp',28),
+  (3,'Mug',       9),
+  (4,'Cable',     8);
+INSERT INTO price_bumps VALUES (1, 10), (2, 25);`;
+
+# Modifying data: `INSERT`, `UPDATE`, `DELETE`, `RETURNING`
+
+## First principles
+
+Writes are **set-based**, like reads. One `UPDATE` changes *every* row its
+`WHERE` matches — there's no loop, and no `WHERE` means **all rows**.
+
+```sql
+INSERT INTO t (a, b) VALUES (1, 2), (3, 4);      -- literal rows
+INSERT INTO t (a, b) SELECT a, b FROM staging;   -- rows from a query
+UPDATE t SET b = b * 2 WHERE a > 10;             -- every matching row
+DELETE FROM t WHERE created_at < now() - INTERVAL '1 year';
+```
+
+**`RETURNING`** turns a write into a query: it returns the affected rows (with
+their *final* values, including defaults and triggers). Great for getting a
+generated id back, or feeding a pipeline.
+
+```sql
+INSERT INTO products (name, price) VALUES ('Pen', 3) RETURNING product_id;
+UPDATE products SET price = price * 1.1 WHERE archived = false RETURNING product_id, price;
+```
+
+**`UPDATE ... FROM`** / **`DELETE ... USING`** join to other tables to decide
+what/how to change:
+
+```sql
+UPDATE products p SET price = p.price * (1 + b.pct/100)
+FROM price_bumps b WHERE b.product_id = p.product_id;
+```
+
+**Data-modifying CTEs** run each write **once** and let you chain them:
+
+```sql
+WITH archived AS (
+  UPDATE products SET archived = true WHERE price < 5 RETURNING *
+)
+INSERT INTO audit (msg) SELECT 'archived ' || name FROM archived;
+```
+
+## The mechanism
+
+```mermaid
+flowchart LR
+    W["UPDATE ... WHERE p"] --> M["find all rows where p is true"]
+    M --> A["apply SET to each"]
+    A --> C["constraints & triggers fire per row"]
+    C --> R["RETURNING: emit final row values"]
+```
+
+## Hand-trace on dummy data
+
+`UPDATE products p SET price = round(p.price*(1+b.pct/100),2) FROM price_bumps b
+WHERE b.product_id = p.product_id RETURNING ...`:
+
+<QueryTrace
+  caption="join products to price_bumps, update the matched rows, return the new prices"
+  steps={[
+    {
+      title: "1 · products and price_bumps",
+      table: {
+        name: "products",
+        columns: ["product_id", "name", "price"],
+        rows: [[1,"Notebook",6],[2,"Desk lamp",28],[3,"Mug",9],[4,"Cable",8]],
+      },
+    },
+    {
+      title: "1b · price_bumps",
+      op: "product_id",
+      table: { name: "price_bumps", columns: ["product_id", "pct"], rows: [[1,10],[2,25]] },
+    },
+    {
+      title: "2 · UPDATE ... FROM: rows 1 and 2 match a bump; 3 and 4 don't",
+      op: "product_id",
+      table: {
+        columns: ["product_id", "name", "price", "matched bump?"],
+        rows: [[1,"Notebook",6,"yes (10%)"],[2,"Desk lamp",28,"yes (25%)"],[3,"Mug",9,"no"],[4,"Cable",8,"no"]],
+      },
+      rows: { drop: [2, 3] },
+    },
+    {
+      title: "3 · apply SET price = price*(1+pct/100) — RETURNING the changed rows",
+      op: "price",
+      table: {
+        name: "RETURNING",
+        result: true,
+        columns: ["product_id", "name", "price"],
+        rows: [[1,"Notebook",6.6],[2,"Desk lamp",35]],
+      },
+    },
+  ]}
+/>
+
+Products 3 and 4 are untouched — only two rows were affected.
+
+## Run it
+
+<SqlRunner title="UPDATE ... FROM with RETURNING" setup={schema}>
+{`UPDATE products p
+SET price = round(p.price * (1 + b.pct / 100.0), 2)
+FROM price_bumps b
+WHERE b.product_id = p.product_id
+RETURNING p.product_id, p.name, p.price;`}
+</SqlRunner>
+
+<SqlRunner title="INSERT ... SELECT, then INSERT ... RETURNING" setup={schema}>
+{`INSERT INTO products (product_id, name, price)
+SELECT product_id + 100, name || ' (copy)', price FROM products WHERE price < 10
+RETURNING product_id, name;`}
+</SqlRunner>
+
+<SqlRunner title="the no-WHERE footgun (run inside a transaction!)" setup={schema}>
+{`BEGIN;
+UPDATE products SET archived = true;     -- forgot the WHERE: ALL rows
+SELECT count(*) FILTER (WHERE archived) AS archived_now, count(*) AS total FROM products;
+ROLLBACK;                                 -- undo it
+SELECT count(*) FILTER (WHERE archived) AS archived_after_rollback FROM products;`}
+</SqlRunner>
+
+<SqlRunner title="data-modifying CTE: archive cheap, log it" setup={schema}>
+{`CREATE TEMP TABLE audit (msg text);
+WITH archived AS (
+  UPDATE products SET archived = true WHERE price < 9 RETURNING name
+)
+INSERT INTO audit (msg) SELECT 'archived ' || name FROM archived;
+SELECT * FROM audit;`}
+</SqlRunner>
+
+<RunThis file="sql/foundations/22_modifying_data/topic.sql" />
+
+## Build → Break → Fix → Why
+
+:::tip 🔨 Build
+Raise the price of one category, safely:
+
+```sql
+BEGIN;
+UPDATE products SET price = price * 1.1 WHERE name LIKE '%lamp%' RETURNING *;
+-- eyeball the RETURNING rows
+COMMIT;   -- or ROLLBACK
+```
+:::
+
+:::danger 💥 Break
+Run the `UPDATE` with a typo'd `WHERE` (or none) outside a transaction:
+
+```sql
+UPDATE products SET price = price * 1.1;   -- every product, committed instantly
+```
+
+In autocommit mode this is **done** the moment you hit enter — no undo.
+:::
+
+:::note 🔧 Fix
+- Wrap risky writes in `BEGIN; ... ROLLBACK;` and inspect with `RETURNING` /
+  `SELECT` before you `COMMIT`.
+- `SELECT` the `WHERE` first: run `SELECT * FROM products WHERE <predicate>`, then
+  reuse the exact predicate in the `UPDATE`.
+- Least-privilege DB users, backups, and `--single-transaction` for scripts.
+:::
+
+:::info 🧠 Why it behaved that way
+An `UPDATE`/`DELETE` is one set-based operation over every row matching `WHERE`.
+Omit `WHERE` and the matching set is the whole table. Outside an explicit
+transaction each statement auto-commits, so there's no rollback point. Inside
+`BEGIN ... COMMIT` the change is invisible to others and reversible with
+`ROLLBACK` until you commit.
+:::
+
+## Pitfalls & idioms
+
+- **No `WHERE` = all rows.** Habitually write the `WHERE` first.
+- Test destructive writes in a transaction; `RETURNING *` to verify before
+  `COMMIT`.
+- `UPDATE ... FROM` with a join that matches a row **more than once** →
+  non-deterministic result (Postgres picks one arbitrarily). Make the join
+  unique, or aggregate the source first.
+- `RETURNING` sees final values (defaults, `BEFORE` triggers, computed columns).
+- Bulk load: `INSERT ... SELECT` or `COPY`, not thousands of single-row
+  `INSERT`s.
+- `DELETE` that should be reversible → a `deleted_at timestamptz` soft-delete
+  column instead (Backend track).
+- Data-modifying CTEs: the sub-statements all see the **same snapshot** and run
+  once; order of side effects between them isn't guaranteed, so don't have two
+  CTEs write the same row.
+
+## See also
+
+- [Upsert & MERGE](/foundations/upsert-and-merge) — insert-or-update in one statement
+- [Transactions & ACID](/foundations/transactions-and-acid) — `BEGIN`/`COMMIT`/`ROLLBACK`, savepoints
+- [Constraints & keys](/foundations/constraints-and-keys) — what a bad write bounces off
+- [Common Table Expressions](/foundations/common-table-expressions) — the `WITH ... AS (UPDATE ...)` pattern
+
+## Check yourself
+
+1. What does `UPDATE t SET x = 0` (no `WHERE`) do?
+2. What does `RETURNING` give you that a follow-up `SELECT` might not?
+3. Write "increase price by each product's bump percentage" using `UPDATE ...
+   FROM`.
+4. In `UPDATE p ... FROM src WHERE src.id = p.id`, what happens if `src` has two
+   rows with the same `id`?
+5. You need to move rows from `active` to `archive` and delete them from
+   `active`, atomically. Sketch it.

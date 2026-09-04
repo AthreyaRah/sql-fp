@@ -1,0 +1,262 @@
+---
+title: "Reading EXPLAIN plans & query optimization"
+sidebar_position: 3
+slug: /backend/reading-explain-plans-and-query-optimization
+description: One realistic endpoint query, slow. Read its plan, find the bad node, add the right index, and watch the plan and the timing change.
+---
+
+{/* status: authored */}
+
+export const schema = `CREATE TABLE customers (
+  customer_id int PRIMARY KEY,
+  country     text NOT NULL,
+  created_at  timestamptz NOT NULL
+);
+CREATE TABLE orders (
+  order_id    bigint PRIMARY KEY,
+  customer_id int NOT NULL,
+  status      text NOT NULL,
+  total       numeric NOT NULL,
+  created_at  timestamptz NOT NULL
+);
+INSERT INTO customers
+SELECT g, (ARRAY['DE','NG','CA','EG','BR'])[1+(g%5)],
+       TIMESTAMPTZ '2023-01-01' + (g||' minutes')::interval
+FROM generate_series(1, 30000) g;
+INSERT INTO orders
+SELECT g, (g % 30000) + 1,
+       (ARRAY['paid','pending','cancelled','refunded'])[1+(g%4)],
+       (g % 900) + 1,
+       TIMESTAMPTZ '2024-01-01' + (g||' minutes')::interval
+FROM generate_series(1, 300000) g;
+ANALYZE customers; ANALYZE orders;`;
+
+# Reading EXPLAIN plans & query optimization
+
+A worked case: **"a customer's recent paid orders"** — the kind of query behind a
+"My Orders" page. It's slow. We'll read the plan, fix it, and confirm.
+
+## The query
+
+```sql
+SELECT o.order_id, o.total, o.created_at
+FROM orders o
+JOIN customers c ON c.customer_id = o.customer_id
+WHERE c.customer_id = 12345
+  AND o.status = 'paid'
+  AND o.created_at >= now() - INTERVAL '90 days'
+ORDER BY o.created_at DESC
+LIMIT 20;
+```
+
+Fresh schema, only primary-key indexes. Run `EXPLAIN (ANALYZE, BUFFERS)` and you
+get something like:
+
+```
+Limit  (actual time=48.2..48.2 rows=20 loops=1)
+  ->  Sort  (actual time=48.2..48.2 rows=20 loops=1)
+        Sort Key: o.created_at DESC
+        Sort Method: top-N heapsort  Memory: 27kB
+        ->  Nested Loop  (actual time=0.3..47.1 rows=1900 loops=1)
+              ->  Index Scan using customers_pkey on customers c  (rows=1 loops=1)
+              ->  Seq Scan on orders o  (actual time=0.1..44.0 rows=1900 loops=1)
+                    Filter: (customer_id = 12345 AND status = 'paid' AND created_at >= ...)
+                    Rows Removed by Filter: 298100
+        Buffers: shared hit=2451
+```
+
+## Reading it, bottom-up
+
+<QueryTrace
+  caption="the cost is in the Seq Scan on orders: 300k rows read, 298k thrown away"
+  steps={[
+    {
+      title: "1 · Index Scan on customers — customer_id = 12345 → 1 row (fine, PK)",
+      op: "customer_id",
+      table: {
+        columns: ["node", "actual rows", "verdict"],
+        rows: [["Index Scan using customers_pkey", "1", "✓ cheap"]],
+      },
+    },
+    {
+      title: "2 · Seq Scan on orders — reads ALL 300,000, keeps 1,900",
+      op: "customer_id",
+      table: {
+        columns: ["node", "rows read", "Rows Removed by Filter", "verdict"],
+        rows: [["Seq Scan on orders", "300,000", "298,100", "✗ this is the problem"]],
+      },
+      rows: { drop: [0] },
+    },
+    {
+      title: "3 · Nested Loop joins them (1 × 1,900) — then Sort top-20 by created_at DESC",
+      op: "created_at",
+      table: {
+        columns: ["node", "actual rows", "note"],
+        rows: [["Nested Loop", "1,900", "cheap once orders is filtered"],["Sort (top-N)", "20", "small — but avoidable with an ordered index"]],
+      },
+    },
+    {
+      title: "4 · diagnosis: no index supports (customer_id, status, created_at) on orders",
+      table: {
+        name: "fix",
+        result: true,
+        columns: ["add", "expected effect"],
+        rows: [["CREATE INDEX ON orders (customer_id, status, created_at DESC)", "Index Scan, ~20 rows read, no Sort"]],
+      },
+    },
+  ]}
+/>
+
+**The tells:**
+
+- `Seq Scan on orders` + `Rows Removed by Filter: 298100` → a selective predicate
+  with no supporting index.
+- `Sort` on `created_at DESC` → could be free if the index were ordered that way.
+- `Nested Loop` is fine here — the outer side is genuinely 1 row.
+
+## The fix
+
+```sql
+CREATE INDEX idx_orders_cust_status_created
+  ON orders (customer_id, status, created_at DESC);
+ANALYZE orders;
+```
+
+Column order: **equality columns first** (`customer_id`, `status`), then the
+**range/sort column** (`created_at`). Now the planner can seek to
+`(12345, 'paid', <now>)` and walk backwards in `created_at` order — the `WHERE`
+*and* the `ORDER BY` *and* the `LIMIT` are all served by one index range scan.
+
+New plan:
+
+```
+Limit  (actual time=0.05..0.09 rows=20 loops=1)
+  ->  Index Scan using idx_orders_cust_status_created on orders o
+        Index Cond: (customer_id = 12345 AND status = 'paid' AND created_at >= ...)
+      (actual rows=20 loops=1)
+  Buffers: shared hit=6
+```
+
+48 ms → 0.09 ms. 2451 buffers → 6. No `Sort`.
+
+## Run it
+
+<SqlRunner title="1 · the slow plan" setup={schema}>
+{`EXPLAIN (ANALYZE, BUFFERS)
+SELECT o.order_id, o.total, o.created_at
+FROM orders o JOIN customers c ON c.customer_id = o.customer_id
+WHERE c.customer_id = 12345
+  AND o.status = 'paid'
+  AND o.created_at >= TIMESTAMPTZ '2024-01-01'
+ORDER BY o.created_at DESC
+LIMIT 20;`}
+</SqlRunner>
+
+<SqlRunner title="2 · add the index, re-plan" setup={schema}>
+{`CREATE INDEX idx_orders_cust_status_created
+  ON orders (customer_id, status, created_at DESC);
+ANALYZE orders;
+
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT o.order_id, o.total, o.created_at
+FROM orders o JOIN customers c ON c.customer_id = o.customer_id
+WHERE c.customer_id = 12345
+  AND o.status = 'paid'
+  AND o.created_at >= TIMESTAMPTZ '2024-01-01'
+ORDER BY o.created_at DESC
+LIMIT 20;`}
+</SqlRunner>
+
+<SqlRunner title="3 · why column order matters — wrong order, no win" setup={schema}>
+{`CREATE INDEX bad ON orders (created_at, status, customer_id);   -- range column first
+ANALYZE orders;
+EXPLAIN
+SELECT order_id FROM orders
+WHERE customer_id = 12345 AND status = 'paid'
+  AND created_at >= TIMESTAMPTZ '2024-01-01'
+ORDER BY created_at DESC LIMIT 20;
+-- still not an efficient Index Cond on customer_id`}
+</SqlRunner>
+
+<SqlRunner title="4 · a covering index removes the heap fetch entirely" setup={schema}>
+{`CREATE INDEX idx_cov
+  ON orders (customer_id, status, created_at DESC) INCLUDE (order_id, total);
+ANALYZE orders;
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT order_id, total, created_at FROM orders
+WHERE customer_id = 12345 AND status = 'paid' AND created_at >= TIMESTAMPTZ '2024-01-01'
+ORDER BY created_at DESC LIMIT 20;
+-- look for "Index Only Scan"`}
+</SqlRunner>
+
+<RunThis file="sql/backend/02_reading_explain_plans_and_query_optimization/topic.sql" />
+
+## Build → Break → Fix → Why
+
+:::tip 🔨 Build
+`EXPLAIN (ANALYZE, BUFFERS)` the endpoint query with a **realistic** parameter.
+Locate the node with the biggest `actual time × loops` or the biggest
+`Rows Removed by Filter`. Index exactly that access path (equality cols, then the
+range/sort col). Re-`EXPLAIN`. Confirm the `Sort` is gone and buffers dropped.
+:::
+
+:::danger 💥 Break
+"Optimize" by reading `cost=` and adding an index that makes the *estimate*
+smaller, without `ANALYZE` timing. Or index each `WHERE` column separately
+(`(customer_id)`, `(status)`, `(created_at)`) and hope the planner combines them
+— it does a `BitmapAnd`, better than a Seq Scan but still no ordered scan, so the
+`Sort` and a bigger heap fetch remain.
+:::
+
+:::note 🔧 Fix
+One **composite** index in the right column order beats three single-column
+indexes for this query: it serves the filter and the order and lets `LIMIT` stop
+after 20 rows. Add `INCLUDE (selected cols)` to get an Index Only Scan.
+:::
+
+:::info 🧠 Why it behaved that way
+The slow plan's `Seq Scan` existed because *no index's leading columns matched
+the equality predicates*, so Postgres had to read every row and filter. The
+`Sort` existed because the rows arrived in physical order, not `created_at`
+order. A B-tree on `(customer_id, status, created_at DESC)` is physically sorted
+by exactly that tuple, so a single descend-and-scan satisfies the `=` conditions
+(prefix), the `>=` condition (range on the last key), and the `ORDER BY`
+(the scan direction) at once — and `LIMIT 20` stops it after 20 leaf entries.
+:::
+
+## Pitfalls & idioms
+
+- Read plans **bottom-up**; the leaf that reads the most rows / spends the most
+  `time × loops` is your target.
+- `Rows Removed by Filter: <big>` under a `Seq Scan` = missing index on that
+  predicate.
+- Composite index order: **`=` columns, then one range/sort column**. Match the
+  `ORDER BY` direction (`DESC`) so no `Sort` node appears.
+- `Index Cond` (used the index to seek) vs `Filter` (checked after fetching) —
+  you want your predicates as `Index Cond`.
+- `INCLUDE` non-key columns for an Index Only Scan; keep the visibility map fresh
+  with autovacuum.
+- Always `ANALYZE` after creating the index and after big data changes.
+- Verify with `EXPLAIN ANALYZE`, not `EXPLAIN` — estimates lie, actuals don't.
+- One targeted composite index usually beats several single-column ones **and**
+  costs less on writes.
+
+## See also
+
+- [Reading query plans](/foundations/reading-query-plans) — node types & the numbers, first principles
+- [Query optimization](/foundations/query-optimization) — sargability, statistics, join algorithms
+- [Indexes & the B-tree](/foundations/indexes-and-the-b-tree) — composite column order
+- [Index types](/foundations/index-types) — covering / partial / expression
+- [Keyset pagination & the N+1 problem](/backend/keyset-pagination-and-the-n-plus-1-problem) — the index that also kills the `Sort`
+
+## Check yourself
+
+1. `Seq Scan` + `Rows Removed by Filter: 300000` — what does it mean and what do
+   you add?
+2. Why does `ORDER BY created_at DESC LIMIT 20` add a `Sort` node, and how does an
+   index remove it?
+3. Column order for an index serving `WHERE a = ? AND b = ? AND c > ? ORDER BY c
+   DESC`?
+4. `Index Cond` vs `Filter` in a plan — which do you want your predicates to be?
+5. Why is one composite index often better than three single-column indexes for a
+   given query — on reads *and* writes?

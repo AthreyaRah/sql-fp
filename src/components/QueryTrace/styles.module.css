@@ -1,0 +1,172 @@
+.trace {
+  --qt-op: var(--ifm-color-primary);
+  --qt-op-bg: color-mix(in srgb, var(--ifm-color-primary) 12%, transparent);
+  --qt-drop-bg: color-mix(in srgb, #e5484d 12%, transparent);
+  --qt-add-bg: color-mix(in srgb, #30a46c 15%, transparent);
+  --qt-match-bg: color-mix(in srgb, #3b82f6 14%, transparent);
+  --qt-border: var(--ifm-table-border-color);
+  margin: 1.5rem 0;
+  padding: 1rem 1.1rem 1.2rem;
+  border: 1px solid var(--qt-border);
+  border-radius: 10px;
+  background: var(--ifm-background-surface-color);
+}
+
+.caption {
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--ifm-color-emphasis-800);
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.steps > li {
+  margin: 0;
+}
+
+.arrow {
+  width: 2px;
+  height: 22px;
+  margin: 0.35rem 0 0.35rem 1.1rem;
+  background: var(--ifm-color-emphasis-400);
+  position: relative;
+}
+
+.arrow::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  bottom: -1px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid var(--ifm-color-emphasis-400);
+}
+
+.figure {
+  margin: 0;
+}
+
+.stepTitle {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ifm-color-emphasis-900);
+  margin-bottom: 0.2rem;
+}
+
+.stepNote {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.grid {
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  display: table;
+  width: auto;
+}
+
+.grid caption.tableName,
+.tableName {
+  caption-side: top;
+  text-align: left;
+  font-size: 0.78rem;
+  font-family: var(--ifm-font-family-monospace);
+  color: var(--ifm-color-emphasis-600);
+  padding-bottom: 0.25rem;
+}
+
+.resultTag {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0 0.35rem;
+  font-size: 0.68rem;
+  font-family: var(--ifm-font-family-base);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  background: var(--qt-add-bg);
+  color: var(--ifm-color-emphasis-800);
+}
+
+.grid th,
+.grid td {
+  border: 1px solid var(--qt-border);
+  padding: 0.3rem 0.6rem;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.grid th {
+  background: var(--ifm-color-emphasis-100);
+  font-family: var(--ifm-font-family-monospace);
+  font-weight: 600;
+}
+
+.resultGrid th,
+.resultGrid td {
+  border-color: color-mix(in srgb, #30a46c 55%, var(--qt-border));
+}
+
+.resultGrid {
+  box-shadow: 0 0 0 2px var(--qt-add-bg);
+  border-radius: 4px;
+}
+
+/* the column this step operates on */
+.opCol {
+  background: var(--qt-op-bg) !important;
+  box-shadow: inset 2px 0 0 var(--qt-op), inset -2px 0 0 var(--qt-op);
+}
+th.opCol {
+  color: var(--qt-op);
+}
+
+.rowDrop td {
+  background: var(--qt-drop-bg);
+  color: var(--ifm-color-emphasis-500);
+  text-decoration: line-through;
+}
+.rowAdd td {
+  background: var(--qt-add-bg);
+}
+.rowMatch td {
+  background: var(--qt-match-bg);
+}
+
+.cellNull {
+  color: var(--ifm-color-emphasis-500);
+  font-style: italic;
+}
+
+/* group gutter */
+.gutter {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 0.5rem 0 0 !important;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.groupLabel {
+  display: inline-block;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.75rem;
+  color: var(--ifm-color-primary);
+  padding-top: 0.3rem;
+}
+
+.groupFirst td {
+  border-top: 2px solid var(--ifm-color-primary);
+}
