@@ -1,0 +1,76 @@
+---
+title: SQL from First Principles
+description: Every SQL concept from zero — the mechanism, a hand-trace on real rows, a runnable script, and a break you fix.
+slug: /
+sidebar_position: 1
+hide_table_of_contents: true
+---
+
+# SQL from First Principles
+
+Most SQL material teaches you syntax and hopes the model sticks. This teaches the
+**model first** — what a relation actually is, what the query engine does with
+your `SELECT`, why `NULL` breaks your `NOT IN`, what a B-tree buys you — and only
+then the syntax, which by that point is obvious.
+
+It is the sibling of
+[Python from First Principles](https://github.com/AthreyaRah/python-fp), built the
+same way: every claim is backed by a script that runs in CI, and every "this
+breaks" is a script that really breaks.
+
+## The shape of every topic
+
+<div className="shape-cards">
+  <div>
+    <h3>1 · First principles</h3>
+    <p>The mechanism from zero: the problem it solves, the mental model, and what the query engine actually does — the logical processing order, the row-by-row evaluation, the data structure underneath.</p>
+  </div>
+  <div>
+    <h3>2 · Hand-trace on dummy data</h3>
+    <p>Six to ten real rows, walked through the operation <strong>step by step</strong> — each step highlighting the column it touches — all the way to the final result table.</p>
+  </div>
+  <div>
+    <h3>3 · Run it, right here</h3>
+    <p>A live SQL editor on the page, backed by a real PostgreSQL engine running in your browser. The trace's rows are already loaded — press Run, edit the query, run again. Nothing to install.</p>
+  </div>
+  <div>
+    <h3>4 · Build → Break → Fix → Why</h3>
+    <p>A working query. One precise change that makes it wrong or slow. The fix. Then the explanation, traced back to the mechanism at the top of the page.</p>
+  </div>
+</div>
+
+## The three tracks
+
+- **[Foundations](/foundations/)** — the SQL common core, in dependency order:
+  the relational model, `NULL`, joins, aggregation, subqueries, CTEs, window
+  functions, transactions, isolation, indexes, and reading query plans. Work
+  top to bottom the first time.
+- **[Backend Engineering](/backend/)** — SQL as the storage layer behind an API:
+  keyset pagination, the N+1 problem, `EXPLAIN`-driven optimization, schema
+  design, locking, JSONB, full-text search, safe migrations.
+- **[Data Engineering](/data-engineering/)** — SQL as the transformation layer in
+  a warehouse: dimensional modeling, slowly changing dimensions, incremental
+  loads, deduplication, sessionization, partitioning.
+
+## Start here
+
+1. Read [How to use this site](/how-to-use) (2 minutes) — it explains the in-page
+   SQL editor and how to read the hand-trace diagrams.
+2. Begin with [The relational model](/foundations/the-relational-model).
+
+No install required. If you'd rather use a local PostgreSQL and pgAdmin, that's
+[a five-minute optional setup](/appendix/run-locally).
+
+## Why PostgreSQL
+
+Everything targets **PostgreSQL** (the in-page engine is Postgres 16+; CI runs
+every script on a stock Postgres 16). The concepts are standard SQL; Postgres
+just has the clearest `EXPLAIN`, the fullest window-function and `MERGE` support,
+and `GIN`/`BRIN`/partitioning for the later topics. If you use MySQL or SQLite,
+95% transfers — the pages call out where it doesn't.
+
+:::note[v1]
+This is v1: the hand-traces are static step-by-step tables. v2 will animate them
+(step forward and back through a query's execution) using the same underlying
+data — no page rewrites.
+:::

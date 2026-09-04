@@ -1,0 +1,366 @@
+---
+title: "Keyset pagination & the N+1 problem"
+sidebar_position: 2
+slug: /backend/keyset-pagination-and-the-n-plus-1-problem
+description: Two query patterns every API hits — deep pagination that degrades page by page, and the N+1 loop ORMs fall into — with the fixes traced on real rows.
+---
+
+{/* status: authored */}
+
+export const schema = `CREATE TABLE authors (
+  author_id int PRIMARY KEY,
+  name text NOT NULL
+);
+CREATE TABLE posts (
+  post_id    bigint PRIMARY KEY,
+  author_id  int NOT NULL REFERENCES authors(author_id),
+  title      text NOT NULL,
+  created_at timestamptz NOT NULL
+);
+INSERT INTO authors SELECT g, 'author ' || g FROM generate_series(1, 50) g;
+INSERT INTO posts
+SELECT g,
+       (g % 50) + 1,
+       'post ' || g,
+       TIMESTAMPTZ '2024-01-01' + (g || ' minutes')::interval
+FROM generate_series(1, 50000) g;
+CREATE INDEX idx_posts_feed ON posts (created_at DESC, post_id DESC);
+CREATE INDEX idx_posts_author ON posts (author_id);
+ANALYZE authors; ANALYZE posts;`;
+
+# Keyset pagination & the N+1 problem
+
+Two query shapes an API serves constantly. Both look fine on a laptop with 100
+rows and fall over at scale.
+
+---
+
+## Part 1 — Pagination
+
+### First principles
+
+`LIMIT 20 OFFSET n` asks the database to **produce the first `n + 20` rows in
+order and throw `n` of them away**. Page 1 (`OFFSET 0`) is instant; page 5000
+(`OFFSET 100000`) computes 100 020 rows to return 20. Cost grows with page
+number, and under concurrent inserts rows **shift between pages** (you see a row
+twice, or miss one).
+
+**Keyset (seek) pagination** remembers the *last row you showed* and asks for
+"the next 20 after this key":
+
+```sql
+-- page 1
+SELECT post_id, title, created_at FROM posts
+ORDER BY created_at DESC, post_id DESC
+LIMIT 20;
+
+-- next page: pass the last row's (created_at, post_id) as $1, $2
+SELECT post_id, title, created_at FROM posts
+WHERE (created_at, post_id) < ($1, $2)          -- row-value comparison
+ORDER BY created_at DESC, post_id DESC
+LIMIT 20;
+```
+
+With an index on `(created_at DESC, post_id DESC)` every page is the **same
+cost** — seek to the key, read 20, done. The trade-off: no random "jump to page
+137" (you can only go next/prev), which is fine for infinite-scroll feeds and
+most APIs.
+
+The `(created_at, post_id)` **tuple** is essential: `created_at` alone isn't
+unique, so you need the id as a tiebreaker, and the row-value comparison
+`(a, b) < ($1, $2)` expresses "earlier timestamp, or same timestamp and smaller
+id" in one sargable predicate.
+
+### Hand-trace
+
+Page through a feed ordered by `(created_at DESC, post_id DESC)`:
+
+<QueryTrace
+  caption="OFFSET re-reads everything above; keyset seeks straight to the cursor"
+  steps={[
+    {
+      title: "1 · posts, ordered newest-first (showing post_id, created_at)",
+      op: "created_at",
+      table: {
+        name: "posts (ordered)",
+        columns: ["post_id", "created_at"],
+        rows: [
+          [50000,"09:20"],[49999,"09:19"],[49998,"09:18"],
+          [49997,"09:17"],[49996,"09:16"],[49995,"09:15"],["…","…"],
+        ],
+      },
+    },
+    {
+      title: "2 · OFFSET 4 LIMIT 2 — engine produces rows 1..6, discards 1..4",
+      op: "created_at",
+      table: {
+        columns: ["post_id", "created_at", "fate"],
+        rows: [
+          [50000,"09:20","read + discarded"],
+          [49999,"09:19","read + discarded"],
+          [49998,"09:18","read + discarded"],
+          [49997,"09:17","read + discarded"],
+          [49996,"09:16","RETURNED"],
+          [49995,"09:15","RETURNED"],
+        ],
+      },
+      rows: { drop: [0, 1, 2, 3] },
+    },
+    {
+      title: "3 · keyset: WHERE (created_at, post_id) < ('09:17', 49997) — index seek, no discards",
+      op: "created_at",
+      table: {
+        columns: ["post_id", "created_at", "note"],
+        rows: [
+          [49996,"09:16","first row at/after the cursor"],
+          [49995,"09:15","RETURNED"],
+        ],
+      },
+      rows: { match: [0, 1] },
+    },
+    {
+      title: "4 · same two rows — but keyset read 2, OFFSET read 6 (and page 5000 would read 100,020) — result",
+      table: {
+        name: "result",
+        result: true,
+        columns: ["approach", "rows the engine touched for this page"],
+        rows: [["OFFSET 100000 LIMIT 20", "100,020"], ["keyset", "20"]],
+      },
+    },
+  ]}
+/>
+
+### Run it
+
+<SqlRunner title="OFFSET cost grows with page number" setup={schema}>
+{`EXPLAIN ANALYZE
+SELECT post_id, created_at FROM posts
+ORDER BY created_at DESC, post_id DESC
+LIMIT 20 OFFSET 40;                       -- cheap
+
+EXPLAIN ANALYZE
+SELECT post_id, created_at FROM posts
+ORDER BY created_at DESC, post_id DESC
+LIMIT 20 OFFSET 40000;                    -- reads 40,020 rows for 20`}
+</SqlRunner>
+
+<SqlRunner title="keyset: every page is the same cost" setup={schema}>
+{`-- page 1
+SELECT post_id, created_at FROM posts
+ORDER BY created_at DESC, post_id DESC
+LIMIT 5;
+
+-- "next" — plug the last row's (created_at, post_id) into the tuple compare
+EXPLAIN ANALYZE
+SELECT post_id, created_at FROM posts
+WHERE (created_at, post_id) < (TIMESTAMPTZ '2024-01-01 13:56:00+00', 49996)
+ORDER BY created_at DESC, post_id DESC
+LIMIT 5;`}
+</SqlRunner>
+
+### Build → Break → Fix → Why
+
+:::tip[🔨 Build]
+Feed endpoint: `ORDER BY created_at DESC, post_id DESC LIMIT 20`, return the last
+row's `(created_at, post_id)` as the `next_cursor`. Next call filters
+`WHERE (created_at, post_id) < (cursor)`.
+:::
+
+:::danger[💥 Break]
+Ship `LIMIT 20 OFFSET (page-1)*20`. Page 1 is 2 ms. A power user on page 3000 is
+900 ms and climbing; meanwhile new posts arrive, so their page 2 now shows a post
+they already saw on page 1.
+:::
+
+:::note[🔧 Fix]
+Keyset. Order by a **unique tuple** ending in the primary key, index that exact
+tuple + direction, and page with a row-value comparison. Expose an opaque
+`cursor` string, not a page number.
+:::
+
+:::info[🧠 Why it behaved that way]
+`OFFSET n` has no shortcut — SQL defines it as "discard the first `n` rows of the
+ordered result", so the engine must generate them. Keyset turns "the next page"
+into a **range predicate** the index can seek to directly, so work is
+proportional to page *size*, not page *position*. And because the cursor is a
+real data value, concurrent inserts above it don't renumber anything.
+:::
+
+---
+
+## Part 2 — The N+1 problem
+
+### First principles
+
+You fetch a list, then loop and fetch a related row per item:
+
+```
+posts = SELECT * FROM posts WHERE ... LIMIT 20;      -- 1 query
+for p in posts:
+    p.author = SELECT * FROM authors WHERE author_id = p.author_id;   -- 20 more
+```
+
+That's **1 + N** queries (here 21) for one screen. Each is fast, but the
+round-trip latency stacks: 21 × 1 ms network = 21 ms of pure waiting, and it
+scales with page size. ORMs do this silently on lazy-loaded associations.
+
+**Fixes**, in order of preference:
+
+1. **Join** — one query returns posts *with* author columns.
+2. **Batch load** — `SELECT * FROM authors WHERE author_id = ANY($1)` with the 20
+   ids, then stitch in code. (ORMs call this "eager loading" / `includes` /
+   `selectinload`.)
+3. **`json_agg`** — return the nested shape directly from SQL.
+
+### Hand-trace
+
+Rendering 3 posts with their author name:
+
+<QueryTrace
+  caption="N+1: one query per post. Join: one query total."
+  steps={[
+    {
+      title: "1 · the list query returns 3 posts",
+      table: {
+        name: "posts",
+        columns: ["post_id", "author_id", "title"],
+        rows: [[10,3,"post 10"],[11,3,"post 11"],[12,7,"post 12"]],
+      },
+    },
+    {
+      title: "2 · N+1: loop issues SELECT authors WHERE author_id = ? — 3 separate round-trips",
+      op: "author_id",
+      table: {
+        columns: ["iteration", "query", "round-trip"],
+        rows: [
+          [1,"authors WHERE author_id = 3","~1 ms"],
+          [2,"authors WHERE author_id = 3","~1 ms (again! same author)"],
+          [3,"authors WHERE author_id = 7","~1 ms"],
+        ],
+      },
+      rows: { drop: [0, 1, 2] },
+    },
+    {
+      title: "3 · join: posts ⋈ authors ON author_id — one query",
+      op: "author_id",
+      table: {
+        columns: ["post_id", "title", "authors.name"],
+        rows: [[10,"post 10","author 3"],[11,"post 11","author 3"],[12,"post 12","author 7"]],
+      },
+      rows: { match: [0, 1, 2] },
+    },
+    {
+      title: "4 · result: 1 query, 1 round-trip, author fetched once — regardless of page size",
+      table: {
+        name: "result",
+        result: true,
+        columns: ["approach", "queries for a 20-post page"],
+        rows: [["N+1", "21"], ["join / batch", "1"]],
+      },
+    },
+  ]}
+/>
+
+### Run it
+
+<SqlRunner title="the N+1 shape (simulated) vs one join" setup={schema}>
+{`-- what the loop does, 3 times, with different ids:
+SELECT * FROM authors WHERE author_id = 3;
+SELECT * FROM authors WHERE author_id = 3;
+SELECT * FROM authors WHERE author_id = 7;
+
+-- what it should do — one join:
+SELECT p.post_id, p.title, a.name AS author
+FROM posts p JOIN authors a USING (author_id)
+WHERE p.created_at >= TIMESTAMPTZ '2024-01-01'
+ORDER BY p.created_at DESC, p.post_id DESC
+LIMIT 20;`}
+</SqlRunner>
+
+<SqlRunner title="batch load: one query for all authors on the page" setup={schema}>
+{`WITH page AS (
+  SELECT post_id, author_id, title FROM posts
+  ORDER BY created_at DESC, post_id DESC LIMIT 20
+)
+SELECT * FROM authors WHERE author_id = ANY (SELECT author_id FROM page);
+-- the app joins page + authors in memory by author_id`}
+</SqlRunner>
+
+<SqlRunner title="return the nested shape from SQL with json_agg" setup={schema}>
+{`SELECT a.author_id, a.name,
+       json_agg(json_build_object('post_id', p.post_id, 'title', p.title)
+                ORDER BY p.created_at DESC) AS recent_posts
+FROM authors a
+JOIN LATERAL (
+  SELECT * FROM posts p WHERE p.author_id = a.author_id
+  ORDER BY created_at DESC LIMIT 3
+) p ON true
+WHERE a.author_id <= 3
+GROUP BY a.author_id, a.name
+ORDER BY a.author_id;`}
+</SqlRunner>
+
+### Build → Break → Fix → Why
+
+:::tip[🔨 Build]
+List endpoint does one `JOIN` (or one list query + one `WHERE id = ANY($ids)`
+batch). Zero per-item queries.
+:::
+
+:::danger[💥 Break]
+Serialize `post.author.name` with a lazy ORM association and no eager-load hint.
+The list endpoint issues 1 + page_size queries. It's invisible in dev (1 + 5),
+then it's the p99 in prod (1 + 100) and the DB connection pool is saturated.
+:::
+
+:::note[🔧 Fix]
+- Prefer a `JOIN` when you need a few columns of the related row.
+- Batch-load (`WHERE id = ANY(...)`) when the ORM makes joins awkward or you need
+  whole related objects — this is `includes` / `prefetch_related` /
+  `selectinload`.
+- `json_agg` / `LATERAL` when the response is genuinely nested and you want the
+  DB to shape it.
+- Turn on your ORM's "raise on N+1" / query-count assertions in tests.
+:::
+
+:::info[🧠 Why it behaved that way]
+Each query has fixed overhead — parse, plan, network round-trip — that dwarfs the
+work of fetching one row by primary key. N of them run **sequentially** (the loop
+waits for each result before issuing the next), so latency is `N × round_trip`,
+not `max`. A join does the matching **inside** the database in one pass over
+indexes, with one round-trip, so page size stops mattering.
+:::
+
+## Pitfalls & idioms
+
+- Keyset order key must be **unique** — always end it with the primary key.
+  Index `(sort_cols..., pk)` in the exact directions the query uses.
+- Row-value comparison `(a,b) < ($1,$2)` is one sargable predicate; the expanded
+  `a < $1 OR (a = $1 AND b < $2)` is equivalent but the planner may not index it
+  as well — prefer the tuple form.
+- Keyset can't do "jump to page N" or "total pages" cheaply. If the product needs
+  that, keep `OFFSET` for shallow pages and cap it, or maintain an approximate
+  count.
+- N+1 also happens on **writes** (insert children in a loop) — batch with
+  `INSERT ... SELECT` / multi-row `VALUES`.
+- A join that fans out (`authors` → many `posts`) inflates the parent columns —
+  aggregate or use `LATERAL` + `LIMIT` per parent.
+- `EXPLAIN ANALYZE` a keyset page and confirm it's an `Index Scan` with a tiny
+  `actual rows`, not a `Sort`.
+
+## See also
+
+- [Sorting & limiting](/foundations/sorting-and-limiting) — the `OFFSET` trap, first principles
+- [Semi-joins & anti-joins](/foundations/semi-joins-and-anti-joins) — `EXISTS` vs `IN` vs `JOIN`
+- [Indexes & the B-tree](/foundations/indexes-and-the-b-tree) — the `(sort_cols, pk)` index
+- [Backend → Reading EXPLAIN plans & query optimization](/backend/reading-explain-plans-and-query-optimization) — verifying the plan
+
+## Check yourself
+
+1. Why does `OFFSET 100000 LIMIT 20` get slower as the offset grows, when
+   `LIMIT 20` alone doesn't?
+2. Why must the keyset sort key include the primary key?
+3. Write the "next page" query for a feed ordered by `(created_at DESC, id DESC)`.
+4. An API list endpoint runs 41 queries to render 40 rows. Name the bug and two
+   fixes.
+5. When is `OFFSET` pagination still an acceptable choice?

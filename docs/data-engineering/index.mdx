@@ -1,0 +1,45 @@
+---
+title: Data Engineering
+sidebar_position: 1
+slug: /data-engineering/
+---
+
+# Data Engineering
+
+SQL as the transformation layer in a warehouse. Here the database isn't serving
+one row to one user — it's rebuilding wide tables from source data on a schedule,
+and the questions are about *grain*, *history*, and *idempotency* rather than
+latency.
+
+This track assumes [Foundations](/foundations/) — especially
+[joins](/foundations/inner-join), [`GROUP BY`](/foundations/group-by-and-aggregation),
+[window functions](/foundations/window-functions-partitioning-and-ranking), and
+[`MERGE`](/foundations/upsert-and-merge). It is being built out; the two pages
+below are complete and set the format.
+
+## Topics
+
+1. [Dimensional modeling: the star schema](/data-engineering/dimensional-modeling-star-schema)
+   — turning a normalized OLTP schema into facts and dimensions, and why the
+   warehouse denormalizes on purpose.
+2. [Slowly Changing Dimensions — Type 2](/data-engineering/slowly-changing-dimensions-type-2)
+   — keeping history when a dimension attribute changes: validity windows,
+   surrogate keys, and the `MERGE`-based load.
+
+## On the build list
+
+- OLTP vs OLAP; row stores vs column stores
+- Grain, and additive / semi-additive / non-additive measures
+- SCD Types 0, 1, 3, 4, 6 — the rest of the family
+- Incremental loads & watermarks; idempotent re-runs
+- Deduplication and data-quality checks in SQL
+- Sessionization with window functions
+- Pivot / unpivot (`crosstab`, `FILTER`, `CASE`)
+- The date / calendar dimension; filling time-series gaps
+- `GROUPING SETS` for pre-aggregated rollups
+- Bridge tables for many-to-many in a star schema
+- Late-arriving dimensions and facts
+- Declarative partitioning & partition pruning
+- `BRIN` indexes for append-only fact tables
+
+Want one of these next? [Open an issue.](https://github.com/AthreyaRah/sql-fp/issues)

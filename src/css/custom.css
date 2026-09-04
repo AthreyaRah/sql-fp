@@ -1,0 +1,83 @@
+/**
+ * SQL from First Principles — site theme.
+ * Infima variables + a few tweaks. The QueryTrace component keeps its own
+ * palette in src/components/QueryTrace/styles.module.css.
+ */
+
+:root {
+  --ifm-color-primary: #2f6feb;
+  --ifm-color-primary-dark: #1c5fe0;
+  --ifm-color-primary-darker: #1a5ad3;
+  --ifm-color-primary-darkest: #164aad;
+  --ifm-color-primary-light: #4a83ef;
+  --ifm-color-primary-lighter: #588cf0;
+  --ifm-color-primary-lightest: #7fa8f4;
+  --ifm-code-font-size: 92%;
+  --ifm-font-family-monospace: 'JetBrains Mono', ui-monospace, SFMono-Regular,
+    'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #6ea8ff;
+  --ifm-color-primary-dark: #4a91ff;
+  --ifm-color-primary-darker: #3885ff;
+  --ifm-color-primary-darkest: #0b62f0;
+  --ifm-color-primary-light: #92bfff;
+  --ifm-color-primary-lighter: #a4caff;
+  --ifm-color-primary-lightest: #d8e7ff;
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.1);
+}
+
+/* Tighten prose tables that aren't QueryTrace grids. */
+.markdown table {
+  display: table;
+  font-size: 0.9rem;
+}
+
+.markdown h2 {
+  margin-top: 2.4rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.markdown h2:first-of-type {
+  border-top: none;
+}
+
+/* Landing page bits */
+.hero--sqlfp {
+  background: linear-gradient(
+    135deg,
+    var(--ifm-color-primary-darkest),
+    var(--ifm-color-primary)
+  );
+  color: #fff;
+  padding: 3.5rem 0;
+}
+.hero--sqlfp .hero__subtitle {
+  max-width: 42rem;
+  margin: 1rem auto 0;
+}
+
+.shape-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+.shape-cards > div {
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  background: var(--ifm-background-surface-color);
+}
+.shape-cards h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+.shape-cards p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ifm-color-emphasis-700);
+}
