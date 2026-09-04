@@ -138,7 +138,7 @@ ORDER BY email;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Combine two logs for a report, keeping every row and its origin:
 
 ```sql
@@ -148,7 +148,7 @@ SELECT ts, msg, 'job' AS src FROM job_log;
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Use `UNION` (no `ALL`) on two large partitioned tables you *know* are disjoint:
 
 ```sql
@@ -162,12 +162,12 @@ duplicates that **cannot exist**. Query time and memory blow up; you may spill t
 disk.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 `UNION ALL` whenever the sides are disjoint or duplicates are acceptable. Reserve
 `UNION` for when you genuinely need cross-source deduplication.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 `UNION` is defined to return a *set*, so the engine must eliminate duplicates,
 which requires a sort or hash over the combined input — O(n log n) or a big hash
 table. `UNION ALL` is defined as concatenation: stream one side, then the other.

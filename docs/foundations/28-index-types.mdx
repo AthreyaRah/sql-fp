@@ -158,24 +158,24 @@ SELECT pg_size_pretty(pg_relation_size('idx_brin')) AS brin_size;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 `CREATE INDEX ON docs USING GIN (tags)` → `WHERE tags @> '{urgent}'` is fast.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Use a plain B-tree for the array: `CREATE INDEX ON docs (tags)`. Then
 `WHERE tags @> '{urgent}'` **can't use it** — a B-tree indexes the array as one
 opaque value, good only for `tags = '{urgent,sql}'` (exact match), not
 "contains". Query falls back to a Seq Scan.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Match the index type to the operator: containment (`@>`, `?`, `@@`) → **GIN**;
 range overlap (`&&`) / KNN (`<->`) → **GiST**; equality/range on a scalar →
 **B-tree**.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 A B-tree keys on the *whole* value in sort order, so it only answers "equals" and
 "between" for that value. "Does this array contain `urgent`?" or "does this jsonb
 have this key?" needs an index over the *elements/keys*, which is what GIN builds

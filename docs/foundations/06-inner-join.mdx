@@ -148,7 +148,7 @@ SELECT c.name, o.order_id FROM customers c CROSS JOIN orders o ORDER BY c.name, 
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Total spend per customer who has ordered:
 
 ```sql
@@ -158,7 +158,7 @@ GROUP BY c.name;
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Now also join `order_items` to include line detail, and keep the same `sum(o.amount)`:
 
 <SqlRunner title="the inflated total" setup={schema}>
@@ -174,7 +174,7 @@ times, so Ana's total jumps from 52 to 40+40+40+12+12 = 144. The second join
 multiplied the order rows.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Aggregate at one grain per subtree. Pre-aggregate orders in a CTE before joining
 detail:
 
@@ -189,7 +189,7 @@ FROM customers c JOIN per_order po ON po.customer_id = c.customer_id;
 
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 Each `JOIN` forms a product with what's already there. `customers ⋈ orders` has
 one row per (customer, order). Joining `order_items` turns that into one row per
 (customer, order, item). `o.amount` is now repeated across a whole order's items,

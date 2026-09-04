@@ -168,7 +168,7 @@ WHERE employee_id NOT IN (SELECT manager_id FROM employees);
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Employees who are nobody's manager, with `NOT EXISTS`:
 
 ```sql
@@ -180,7 +180,7 @@ WHERE NOT EXISTS (
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Write it with `NOT IN`:
 
 ```sql
@@ -193,13 +193,13 @@ WHERE employee_id NOT IN (SELECT manager_id FROM employees);
 dropped.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 `NOT EXISTS` (correlated), or make the subquery non-nullable:
 `... NOT IN (SELECT manager_id FROM employees WHERE manager_id IS NOT NULL)`.
 Prefer `NOT EXISTS` — it's immune to this and usually plans as well or better.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 `NOT IN (list)` expands to a chain of `AND`-ed `<>` comparisons. One `NULL` in
 the list makes one comparison `NULL`, and `true AND NULL` is `NULL`, and `WHERE`
 drops `NULL`. `EXISTS` / `NOT EXISTS` don't compare values — they ask "did the

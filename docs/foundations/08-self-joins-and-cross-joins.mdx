@@ -131,7 +131,7 @@ FROM generate_series(DATE '2024-01-01', DATE '2024-01-05', INTERVAL '1 day') AS 
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 "Employees paired with same-team colleagues" — needs `a.employee_id <> b.employee_id`:
 
 ```sql
@@ -141,7 +141,7 @@ FROM employees a JOIN employees b
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Forget the `<> `:
 
 ```sql
@@ -154,13 +154,13 @@ row trivially matches itself on `manager_id`. Counts and averages over this are
 wrong.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Add `a.employee_id <> b.employee_id` for "any other row", or
 `a.employee_id < b.employee_id` for "each unordered pair once" (no self, no
 mirror duplicate).
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 The two aliases are independent scans of the same rows, so the pair `(Omar,
 Omar)` is a legitimate element of the product and it satisfies
 `a.manager_id = b.manager_id`. Nothing excludes the diagonal unless you do.

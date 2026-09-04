@@ -151,7 +151,7 @@ ORDER BY region NULLS LAST, category NULLS LAST;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Category totals plus a grand total:
 
 ```sql
@@ -160,14 +160,14 @@ GROUP BY GROUPING SETS ((category), ());
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Try to tell the grand-total row apart with `WHERE category IS NOT NULL` (to hide
 it) — but `sales` has no real NULL categories, so it works by luck. Add a row
 with a genuinely `NULL` category and your filter now also hides a real group. Or:
 sort by `category` and the total row lands in a confusing spot.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Use `GROUPING(category)` — it's `1` only for rolled-up NULLs, `0` for real
 values:
 
@@ -177,7 +177,7 @@ values:
 ```
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 Subtotal rows carry `NULL` in the columns that were rolled up, and SQL has no
 separate "aggregated away" marker in the value itself. `GROUPING(col)` is that
 marker, returned as a separate bit. Filtering or sorting on the raw `NULL`

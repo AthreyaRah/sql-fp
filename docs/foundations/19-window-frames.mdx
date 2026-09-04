@@ -166,7 +166,7 @@ FROM daily_sales ORDER BY region, d;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 A per-day running total for each region:
 
 ```sql
@@ -175,7 +175,7 @@ sum(amount) OVER (PARTITION BY region ORDER BY d
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Drop the `ROWS` clause and rely on the default while ordering by a column with
 ties:
 
@@ -188,13 +188,13 @@ sum — the total *through the end of that tie group* — not a distinct running
 value per row. Your "running total" has plateaus.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 State the frame explicitly: `ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW` for
 a strict per-row running total. Order by something unique (a timestamp, an id) so
 each row has a definite position.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 With `ORDER BY` and no frame clause, the default is `RANGE ... CURRENT ROW`, and
 under `RANGE` "current row" means "all rows whose sort value equals this one".
 Tied rows therefore share the frame's end, so they share the aggregate. `ROWS`

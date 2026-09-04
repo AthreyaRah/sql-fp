@@ -161,11 +161,11 @@ WHERE CASE WHEN category = 'tech' THEN price > 50 ELSE price > 5 END;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 "Currently-sold products under €10": `WHERE price < 10 AND discontinued_on IS NULL`.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Exclude discontinued products with `discontinued_on <> NULL` or
 `discontinued_on != '...'`:
 
@@ -178,12 +178,12 @@ The still-sold products (`discontinued_on IS NULL`) **disappear** —
 cheap products: the opposite of what you wanted.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 `discontinued_on IS NULL` for "still sold". If you need "sold, or discontinued
 after some date": `(discontinued_on IS NULL OR discontinued_on > DATE '2024-01-01')`.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 Any comparison operator (`<>`, `=`, `<`, `LIKE`, `BETWEEN`) with a `NULL` operand
 yields `NULL`, and `WHERE` keeps only `true`. The null-state tests `IS NULL` /
 `IS NOT DISTINCT FROM` are the only operators that give a clean boolean when

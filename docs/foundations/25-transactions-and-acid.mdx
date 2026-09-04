@@ -139,11 +139,11 @@ SELECT * FROM accounts ORDER BY id;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Wrap the two-step transfer in `BEGIN ... COMMIT` so it's atomic.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Run the two `UPDATE`s without a transaction (autocommit):
 
 ```sql
@@ -155,14 +155,14 @@ UPDATE accounts SET balance = balance + 30 WHERE id = 'bob';     -- never runs
 Alice is out 30; Bob never got it. The money is gone.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 `BEGIN; UPDATE ...; UPDATE ...; COMMIT;` — now the debit is invisible and
 reversible until the credit also succeeds, and both become durable together. In
 application code, one transaction per business operation, with a rollback on any
 exception.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 Autocommit makes each statement its own transaction, durable the instant it
 returns. There's no unit spanning both updates, so a failure after the first
 leaves the database in a state your business rules call invalid — but which no

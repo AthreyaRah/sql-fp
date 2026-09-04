@@ -89,19 +89,16 @@ function Runner({setup, query, initial, maxRows, title}: {
 
   const lines = Math.min(Math.max(sql.split('\n').length + 1, 3), 18);
 
-  const ensureDb = useCallback(async (): Promise<RunnerDb> => {
-    if (!dbRef.current) {
-      dbRef.current = await createDb(setup);
-      setBooted(true);
-    }
-    return dbRef.current;
-  }, [setup]);
-
   const run = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
-      const db = await ensureDb();
+      // Fresh database on every Run: the seed data is reloaded, so clicking Run
+      // twice (or after editing an earlier statement) always starts from the
+      // same known state — no "duplicate key" surprises from re-running setup.
+      const db = await createDb(setup);
+      dbRef.current = db;
+      setBooted(true);
       setResult(await db.query(sql));
     } catch (e) {
       setResult(null);
@@ -109,13 +106,12 @@ function Runner({setup, query, initial, maxRows, title}: {
     } finally {
       setBusy(false);
     }
-  }, [ensureDb, sql]);
+  }, [setup, sql]);
 
   const reset = useCallback(async () => {
     setSql(initial);
     setError(null);
     setResult(null);
-    // rebuild a clean database so edits to earlier statements don't linger
     dbRef.current = null;
     setBooted(false);
   }, [initial]);
@@ -152,7 +148,8 @@ function Runner({setup, query, initial, maxRows, title}: {
         {!booted && !busy && !error && !result && (
           <span className={styles.hint}>
             Press <kbd>Run</kbd> (or ⌘/Ctrl+Enter). First run downloads a ~3&nbsp;MB
-            Postgres engine, then it&apos;s instant.
+            Postgres engine; after that each run reloads the seed data and executes
+            in a fresh database.
           </span>
         )}
         {busy && <span className={styles.hint}>Running…</span>}

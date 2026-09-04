@@ -158,7 +158,7 @@ ORDER BY c.name NULLS LAST, o.order_id;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 "Every customer with their order count (0 for those who never ordered)":
 
 ```sql
@@ -169,7 +169,7 @@ GROUP BY c.name;
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Add "only orders over 20" in the `WHERE`:
 
 ```sql
@@ -185,7 +185,7 @@ you're back to an inner join. `o.amount > 20` is `NULL` for the padded rows, and
 `WHERE` drops `NULL`.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Put the right-table filter in the `ON` clause, where it's applied *before*
 padding:
 
@@ -198,7 +198,7 @@ Now Chidi/Dana stay (with `count = 0`), and Ana's small order just doesn't
 contribute.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 The `LEFT JOIN` produces its padded rows first; then `WHERE` runs on the whole
 result. A predicate on a right-table column is `NULL` for every padded row, and
 `WHERE` keeps only `true`, so the padded rows die and the outer join collapses to

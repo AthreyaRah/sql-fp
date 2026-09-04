@@ -140,7 +140,7 @@ ORDER BY c.name;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 "Customers who have never ordered":
 
 ```sql
@@ -149,7 +149,7 @@ WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id);
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Write it with `NOT IN`:
 
 ```sql
@@ -162,13 +162,13 @@ WHERE customer_id NOT IN (SELECT customer_id FROM orders);
 is `NULL`, so the whole `AND` can never be `true`.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 `NOT EXISTS` (correlated) — it asks "did the subquery return a row?", a clean
 boolean. Or filter the subquery: `NOT IN (SELECT customer_id FROM orders WHERE
 customer_id IS NOT NULL)`. Prefer `NOT EXISTS`.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 `IN` / `NOT IN` are value comparisons, so they inherit
 [3VL](/foundations/data-types-null-and-three-valued-logic): one `NULL` in the
 list poisons `NOT IN`. `EXISTS` / `NOT EXISTS` don't compare values — they test

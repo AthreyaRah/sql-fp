@@ -140,12 +140,12 @@ EXPLAIN SELECT DISTINCT city FROM customers;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 `SELECT DISTINCT city FROM customers ORDER BY city;` — a deterministic list of
 the distinct cities.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Drop the `ORDER BY` and rely on the rows coming back alphabetically because they
 did once. Add a few rows, or run it on a bigger table, or let a parallel scan
 kick in, and the same query returns the cities in a different order — a snapshot
@@ -157,13 +157,13 @@ SELECT DISTINCT city FROM customers;
 ```
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 If you need an order, ask for it: `ORDER BY city`. A relation has no order; the
 *only* thing that puts rows in a defined sequence is `ORDER BY` in the outermost
 query.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 "Set of tuples" means unordered. Postgres returns rows in whatever order the
 chosen plan produces — heap-scan order for a fresh small table, hash-bucket order
 after a hash aggregate, something else after a merge. None of that is a contract.

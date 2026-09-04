@@ -147,7 +147,7 @@ ORDER BY len DESC, name;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 "The 3 most recent signups":
 
 ```sql
@@ -160,7 +160,7 @@ The `customer_id` tie-breaker makes the order **total** — no ambiguity when
 dates tie.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Drop the tie-breaker and paginate:
 
 ```sql
@@ -174,12 +174,12 @@ Ben and Chidi share `2023-02-11`. Across two runs the engine may order that pair
 differently, so one of them can appear on **both** pages or **neither**.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Always sort by something unique last: `ORDER BY signup_date DESC, customer_id
 DESC`. Then every row has one definite position, and pagination is stable.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 `ORDER BY signup_date` only constrains the *date* order. Rows with equal dates
 are in an undefined order among themselves, and the plan can produce that order
 differently between executions (different scan, parallel workers, a sort spill).

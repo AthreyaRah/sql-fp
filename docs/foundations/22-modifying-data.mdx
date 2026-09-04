@@ -153,7 +153,7 @@ SELECT * FROM audit;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Raise the price of one category, safely:
 
 ```sql
@@ -164,7 +164,7 @@ COMMIT;   -- or ROLLBACK
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Run the `UPDATE` with a typo'd `WHERE` (or none) outside a transaction:
 
 ```sql
@@ -174,7 +174,7 @@ UPDATE products SET price = price * 1.1;   -- every product, committed instantly
 In autocommit mode this is **done** the moment you hit enter — no undo.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 - Wrap risky writes in `BEGIN; ... ROLLBACK;` and inspect with `RETURNING` /
   `SELECT` before you `COMMIT`.
 - `SELECT` the `WHERE` first: run `SELECT * FROM products WHERE <predicate>`, then
@@ -182,7 +182,7 @@ In autocommit mode this is **done** the moment you hit enter — no undo.
 - Least-privilege DB users, backups, and `--single-transaction` for scripts.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 An `UPDATE`/`DELETE` is one set-based operation over every row matching `WHERE`.
 Omit `WHERE` and the matching set is the whole table. Outside an explicit
 transaction each statement auto-commits, so there's no rollback point. Inside

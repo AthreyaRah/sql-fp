@@ -146,12 +146,12 @@ ORDER BY product_id;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Latest price per product with `DISTINCT ON`, `ORDER BY product_id, changed_at
 DESC` (the `DISTINCT ON` column comes first in `ORDER BY`).
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Order by the timestamp only:
 
 ```sql
@@ -166,14 +166,14 @@ expecting one row per product — you get **one row per (product, price)** inste
 so product 1 shows three rows.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 `ORDER BY` must **lead with the `DISTINCT ON` expressions**, then the column that
 decides which row wins: `ORDER BY product_id, changed_at DESC`. For "one row per
 product" you need `DISTINCT ON (product_id)` or a `GROUP BY` / window — plain
 `DISTINCT` can't do per-key picking.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 `DISTINCT ON` walks the rows **in `ORDER BY` order** and emits the first row it
 sees for each new value of the `DISTINCT ON` key. So the key must be the primary
 sort (to group runs together) and your preference column the secondary sort (to

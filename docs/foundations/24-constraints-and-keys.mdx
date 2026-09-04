@@ -148,7 +148,7 @@ SELECT conname, convalidated FROM pg_constraint WHERE conrelid = 'orders'::regcl
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 "At most one primary address per customer":
 
 ```sql
@@ -156,19 +156,19 @@ CREATE UNIQUE INDEX one_primary_addr ON addresses (customer_id) WHERE is_primary
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Enforce it in the app instead — "before insert, check no other primary exists".
 Two concurrent requests both check (none), both insert. Now the customer has two
 primary addresses and every "get primary address" query is non-deterministic.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 The **partial unique index** above. The database serializes the two inserts on
 the index; the second gets a unique violation and the app retries or reports it.
 The invariant now holds no matter what the app does.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 An application-level check has a gap between "check" and "write" where another
 transaction slips in — the same [lost-update /
 phantom](/foundations/isolation-levels-and-mvcc) shape as everywhere else. A

@@ -159,18 +159,18 @@ EXPLAIN ANALYZE SELECT * FROM orders WHERE customer_id = 1;   -- estimate now cl
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 `EXPLAIN (ANALYZE, BUFFERS)` your slow query. Find the node where **actual rows ≫
 estimated rows**, or where **actual time × loops** dominates. That's your target.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Read `cost` as milliseconds and optimize the number down, or trust `EXPLAIN`
 (estimates only) and never run `ANALYZE`. You "improve" a plan whose estimate got
 smaller while the real query got slower — the estimate was wrong the whole time.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 - Always `EXPLAIN ANALYZE` (on a realistic copy — it *executes*, including
   writes; wrap DML in `BEGIN; ... ROLLBACK;`).
 - Compare `rows` vs `actual rows` at every node. A 100× gap → run `ANALYZE
@@ -179,7 +179,7 @@ smaller while the real query got slower — the estimate was wrong the whole tim
 - Multiply inner-node `actual time` by `loops`.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 `cost` is a unitless blend of estimated page reads and CPU tuples, tuned for
 *comparing* candidate plans — it is not time. The planner picks the lowest-cost
 plan **given its row estimates**; if those estimates are wrong (stale stats,

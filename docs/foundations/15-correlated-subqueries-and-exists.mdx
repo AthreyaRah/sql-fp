@@ -141,7 +141,7 @@ ORDER BY c.name;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 "Customers who have ordered" — `EXISTS`:
 
 ```sql
@@ -150,7 +150,7 @@ WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id);
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Use a correlated `COUNT` instead, and forget it counts everything:
 
 ```sql
@@ -163,12 +163,12 @@ every customer** — `EXISTS` stops at the first. On millions of orders that's t
 difference between a quick index probe and a full per-customer scan.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 `EXISTS (SELECT 1 ...)` for "is there at least one". Reserve the correlated
 `COUNT` for when you actually need the number.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 `count(*) > 0` forces the subquery to *enumerate and count* all matches before
 comparing. `EXISTS` is satisfied by the **first** row the subquery can produce,
 so with an index on `orders(customer_id)` it's one index seek per customer and

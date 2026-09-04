@@ -143,26 +143,26 @@ EXPLAIN SELECT * FROM events WHERE kind = 'view';                    -- can't us
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Fast "this user's recent events": `CREATE INDEX ON events (user_id, created_at
 DESC)`, then `WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20` is an index
 range scan — no sort.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Create `(created_at, user_id)` instead and run `WHERE user_id = $1 ORDER BY
 created_at DESC`. The index leads with `created_at`, so a filter on `user_id`
 alone can't use it as a starting point — the planner either scans the whole index
 or the table.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Put the **equality** column(s) first, then the **range/sort** column:
 `(user_id, created_at DESC)`. Rule: columns used with `=` go left; the one column
 used with a range or `ORDER BY` goes last.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 A B-tree is sorted by the whole key tuple, left to right — like a phone book
 sorted by (last name, first name). You can seek by last name, or last+first, but
 not by first name alone. `WHERE user_id = 10` on `(user_id, created_at)` picks a

@@ -87,7 +87,7 @@ and it never touches anything else. Run them all (what CI does):
 python tools/run_sql.py
 ```
 
-:::warning pgAdmin and `psql` commands
+:::warning[pgAdmin and `psql` commands]
 The scripts are plain SQL and paste into the pgAdmin Query Tool as-is. They're
 run in CI with `psql -v ON_ERROR_STOP=1` so any error fails loudly. Section
 headers are `-- ==== label ====` comments; expected answers are `-- expect:`

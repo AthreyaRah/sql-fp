@@ -140,7 +140,7 @@ WHERE (category, price) = (
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 "The single most expensive product":
 
 ```sql
@@ -149,7 +149,7 @@ WHERE price = (SELECT max(price) FROM products);
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 "Products priced like the most expensive one in their category":
 
 ```sql
@@ -162,7 +162,7 @@ The `GROUP BY` makes the subquery return one max per category — three rows —
 `price = (...)` needs a single value.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Either make it a proper multi-row test with `IN` /`= ANY`:
 
 ```sql
@@ -177,7 +177,7 @@ WHERE price = (SELECT max(p2.price) FROM products p2 WHERE p2.category = product
 ```
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 `price = (subquery)` is a scalar context: SQL expects the subquery to yield one
 value to compare against. `GROUP BY category` yields one row per group, so the
 expression is fed 3 values and the engine can't reduce them to one — runtime

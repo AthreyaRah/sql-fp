@@ -151,7 +151,7 @@ FROM orders GROUP BY customer_id ORDER BY customer_id;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Paid revenue per customer:
 
 ```sql
@@ -161,7 +161,7 @@ GROUP BY customer_id;
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Also show the status without grouping by it:
 
 ```sql
@@ -173,7 +173,7 @@ GROUP BY customer_id;
 ```
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Decide what you meant:
 
 - one row per **customer** → drop `status`, or aggregate it
@@ -182,7 +182,7 @@ Decide what you meant:
 - **filter** to one status → `WHERE status = 'paid'` and don't select it.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 After `GROUP BY customer_id`, the group "customer 1" holds three rows with
 statuses `paid, paid, cancelled`. `SELECT status` asks for a single value; there
 are three, and no rule picks one. (MySQL with `ONLY_FULL_GROUP_BY` off *would*

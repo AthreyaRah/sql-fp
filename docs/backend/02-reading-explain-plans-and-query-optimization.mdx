@@ -193,14 +193,14 @@ ORDER BY created_at DESC LIMIT 20;
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 `EXPLAIN (ANALYZE, BUFFERS)` the endpoint query with a **realistic** parameter.
 Locate the node with the biggest `actual time × loops` or the biggest
 `Rows Removed by Filter`. Index exactly that access path (equality cols, then the
 range/sort col). Re-`EXPLAIN`. Confirm the `Sort` is gone and buffers dropped.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 "Optimize" by reading `cost=` and adding an index that makes the *estimate*
 smaller, without `ANALYZE` timing. Or index each `WHERE` column separately
 (`(customer_id)`, `(status)`, `(created_at)`) and hope the planner combines them
@@ -208,13 +208,13 @@ smaller, without `ANALYZE` timing. Or index each `WHERE` column separately
 `Sort` and a bigger heap fetch remain.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 One **composite** index in the right column order beats three single-column
 indexes for this query: it serves the filter and the order and lets `LIMIT` stop
 after 20 rows. Add `INCLUDE (selected cols)` to get an Index Only Scan.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 The slow plan's `Seq Scan` existed because *no index's leading columns matched
 the equality predicates*, so Postgres had to read every row and filter. The
 `Sort` existed because the rows arrived in physical order, not `created_at`

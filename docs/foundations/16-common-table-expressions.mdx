@@ -149,7 +149,7 @@ SELECT customer_id, count(*) FROM big GROUP BY customer_id;
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Pre-aggregate before joining detail (avoids the
 [fan-out double-count](/foundations/inner-join)):
 
@@ -162,19 +162,19 @@ FROM orders o JOIN per_order po USING (order_id);
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Assume a CTE is always a one-time computation and put an expensive function in a
 CTE referenced 5 times, expecting it to run once — then on Postgres 12+ the
 planner **inlines** it and the function runs per reference, 5×. (Or the reverse:
 you rely on inlining for an index to be used, and an older Postgres fences it.)
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Be explicit when it matters: `WITH x AS MATERIALIZED (...)` to guarantee one
 computation, `NOT MATERIALIZED` to guarantee inlining. Don't assume the default.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 Pre-12 Postgres always materialized CTEs — predictable but sometimes a
 pessimization (predicates couldn't be pushed in). Modern Postgres inlines a CTE
 that's referenced once and side-effect-free, so it optimizes across the boundary.

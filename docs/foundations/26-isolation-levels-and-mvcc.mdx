@@ -142,7 +142,7 @@ COMMIT;`}
 
 <RunThis file="sql/foundations/26_isolation_levels_and_mvcc/topic.sql" />
 
-:::note One connection
+:::note[One connection]
 The in-page runner is a single connection, so it can't show two sessions
 racing. The hand-trace above is the thing to study; the runners show the
 *mechanics* (isolation level, `FOR UPDATE`, the atomic `UPDATE`).
@@ -150,7 +150,7 @@ racing. The hand-trace above is the thing to study; the runners show the
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Claim a free seat atomically:
 
 ```sql
@@ -161,13 +161,13 @@ RETURNING seat_id;
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 `SELECT` a free seat in the app, then `UPDATE` it by id. Under load, two requests
 pick the same seat; the second `UPDATE` silently overwrites the first. Both users
 get a confirmation for seat 1.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 - **Atomic write**: put the "is it free" check in the `UPDATE`'s `WHERE` and act
   on `RETURNING` (0 rows = someone beat you).
 - **Pessimistic**: `SELECT ... FOR UPDATE [SKIP LOCKED]` to lock the row for the
@@ -176,7 +176,7 @@ get a confirmation for seat 1.
   failure, or a `version` column: `UPDATE ... WHERE id = $1 AND version = $2`.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 Under `READ COMMITTED`, each statement gets a fresh snapshot, and a plain
 `SELECT` takes **no lock**. Between your `SELECT` and your `UPDATE` another
 transaction can commit a change to that row. `FOR UPDATE` takes a row lock so

@@ -163,7 +163,7 @@ ORDER BY game, points DESC;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 "The single top scorer per game" — `row_number()` (picks one even on a tie):
 
 ```sql
@@ -174,7 +174,7 @@ SELECT * FROM (
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Filter the rank in `WHERE` of the same query:
 
 ```sql
@@ -188,14 +188,14 @@ WHERE rn = 1;
 Or use `rank() = 1` and get **two** rows for chess (Ana *and* Ben tie at 30).
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 - Window functions can't be referenced in `WHERE`/`HAVING` — wrap the query in a
   subquery or CTE and filter the outer query.
 - Want exactly one row per group even on ties → `row_number()` with a
   tie-breaker in the `ORDER BY`. Want all tied leaders → `rank() = 1`.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 Window functions are evaluated *after* `WHERE` (which is why they can see the
 post-filter row set), so their output isn't available to `WHERE` on the same
 query level — hence "column does not exist". `rank()` deliberately gives ties the

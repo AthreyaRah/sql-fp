@@ -232,13 +232,13 @@ FROM fact_sales;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Grain = one row per order line. Measures `qty` and `revenue` (additive). FKs to
 `dim_date`, `dim_customer`, `dim_product`. `unit_price` is **not** stored as a
 measure — derive `avg price = sum(revenue)/sum(qty)`.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Set the grain at "one row per order" but keep product-level measures — you either
 lose the product breakdown, or you store `revenue` per order and *also* a
 `product_key`, so `SUM(revenue) GROUP BY product` double-counts multi-product
@@ -246,7 +246,7 @@ orders. Or: store `unit_price` as a measure and let a dashboard `SUM` it — eve
 "total price" is garbage.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 - Pick the **lowest grain** you'll ever need to analyze (usually the transaction
   line). You can always roll up; you can't drill down past the grain.
 - Store only **additive** measures in the fact. Compute ratios and averages at
@@ -255,7 +255,7 @@ orders. Or: store `unit_price` as a measure and let a dashboard `SUM` it — eve
   business id.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 The grain *is* the contract: every measure column must be a single well-defined
 number for that exact row. `unit_price` isn't — it's a rate, and rates don't add
 (2 mugs at €9 and 1 lamp at €28 isn't "€37 of price"). Mixed grains double-count

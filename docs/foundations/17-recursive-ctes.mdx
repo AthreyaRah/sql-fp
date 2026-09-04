@@ -154,7 +154,7 @@ SELECT i, i*i AS square FROM n;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 "All reports under a manager" with a `depth` guard:
 
 ```sql
@@ -169,14 +169,14 @@ SELECT * FROM tree;
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Introduce a cycle (`UPDATE employees SET manager_id = 6 WHERE employee_id = 1`)
 and run the unguarded walk-down with `UNION ALL`. It never terminates — each step
 keeps finding "new" rows around the loop. In the in-page runner it'll spin until
 it errors or you reset.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 - `UNION` instead of `UNION ALL` to dedupe accumulated rows (handles cycles by
   stopping when nothing new appears), **or**
 - a `WHERE depth < N` guard on the recursive term, **or**
@@ -184,7 +184,7 @@ it errors or you reset.
   `WHERE NOT is_cycle`.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 `UNION ALL` emits every row the recursive term produces, and with a cycle the
 term produces rows forever (Root → … → Root → …). The iteration only stops when a
 step yields **zero** rows. `UNION` compares against everything seen so far, so a

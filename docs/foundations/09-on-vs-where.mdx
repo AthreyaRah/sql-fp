@@ -151,24 +151,24 @@ SELECT c.name, o.amount FROM customers c JOIN orders o
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 "All customers + count of their `paid` orders": `LEFT JOIN orders o ON
 o.customer_id = c.customer_id AND o.status = 'paid'`, then
 `count(o.order_id)`.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Move `status = 'paid'` to `WHERE`. Customers with zero paid orders drop out
 entirely — you can no longer see that they have 0.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Right-table filters that must not shrink the preserved side go in `ON`. A filter
 that legitimately *should* restrict the final rows (e.g. "only customers in
 Berlin", a left-table condition) belongs in `WHERE`.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 `ON` participates in matching; a right row failing `ON` just isn't a match, and
 the left row is still preserved and NULL-padded. `WHERE` runs on the padded
 result; `o.status = 'paid'` is `NULL` for a padded row, `WHERE` keeps only

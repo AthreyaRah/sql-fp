@@ -160,12 +160,12 @@ EXPLAIN SELECT * FROM mv ORDER BY spent DESC LIMIT 10;   -- Index Scan on the ma
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 A `daily_revenue` **materialized** view refreshed by a nightly job — dashboards
 read it instantly.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Point a "current account balance" screen at a materialized view refreshed hourly.
 Users see hour-old balances; a deposit "doesn't show up"; support tickets follow.
 Or: make it a plain `VIEW` over a 200M-row `transactions` table with a heavy
@@ -173,7 +173,7 @@ window function — every page load re-runs the whole aggregation and the dashbo
 times out.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Match the tool to the freshness requirement:
 
 - Needs to be **current** → plain `VIEW` (and make the underlying query fast with
@@ -184,7 +184,7 @@ Match the tool to the freshness requirement:
   application, or use an incremental-view extension.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 A plain view is pure substitution: reading it costs exactly what its query costs,
 every time, against live data — always fresh, never cheaper. A materialized view
 trades freshness for speed: it's a real stored table whose contents are frozen at

@@ -138,7 +138,7 @@ ORDER BY customer_id;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 "Customers with 2+ paid orders":
 
 ```sql
@@ -149,7 +149,7 @@ HAVING count(*) >= 2;
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Put the aggregate in `WHERE`:
 
 ```sql
@@ -171,7 +171,7 @@ HAVING status = 'paid' AND count(*) >= 2;
 ```
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Row conditions → `WHERE`. Group/aggregate conditions → `HAVING`:
 
 ```sql
@@ -181,7 +181,7 @@ HAVING count(*) >= 2
 ```
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 `WHERE` runs before grouping, so `count(*)` (which only exists once groups are
 formed) is meaningless there — hence the error. `HAVING` runs after grouping;
 `orders.status` isn't a grouping column and a group has many statuses, so it's

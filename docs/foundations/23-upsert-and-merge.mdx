@@ -146,7 +146,7 @@ SELECT * FROM inventory ORDER BY sku;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Idempotent counter increment:
 
 ```sql
@@ -155,7 +155,7 @@ ON CONFLICT (sku) DO UPDATE SET qty = inventory.qty + EXCLUDED.qty;
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Do it as read-then-write:
 
 ```sql
@@ -169,13 +169,13 @@ Two sessions run this at once: both read `5`, both write `6`. One increment is
 **lost**. If the row didn't exist, both `INSERT` and one hits a unique violation.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 One statement: `INSERT ... ON CONFLICT (sku) DO UPDATE SET qty = inventory.qty +
 EXCLUDED.qty`. The database resolves the conflict atomically under the unique
 index; concurrent callers serialize on that row.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 `SELECT`-then-write has a gap between reading and writing where another
 transaction can change the row. `ON CONFLICT` performs the existence check and
 the write as a single indivisible operation guarded by the unique index — the

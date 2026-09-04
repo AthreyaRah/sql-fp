@@ -182,24 +182,24 @@ EXPLAIN SELECT count(*) FROM orders WHERE status = 'paid' AND total < 50;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 "Orders on a given day" as a half-open range on an indexed `created_at`:
 `WHERE created_at >= $1::date AND created_at < ($1::date + 1)`.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Write it as `WHERE created_at::date = $1`. On 200 000 rows the index on
 `created_at` is unusable; every row gets `::date`-cast and compared — full Seq
 Scan, and it gets linearly worse as the table grows.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Never wrap the indexed column in a function or arithmetic in the predicate. Move
 the transform to the **constant** side, or use a **half-open range**, or build an
 **expression index** on exactly the transform you need.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 A B-tree on `created_at` stores rows ordered by `created_at`. The planner can
 turn `created_at >= a AND created_at < b` into "seek to `a`, walk to `b`" because
 that maps directly to the index's order. `date(created_at) = d` is a predicate on

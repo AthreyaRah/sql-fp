@@ -160,25 +160,25 @@ LIMIT 5;`}
 
 ### Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Feed endpoint: `ORDER BY created_at DESC, post_id DESC LIMIT 20`, return the last
 row's `(created_at, post_id)` as the `next_cursor`. Next call filters
 `WHERE (created_at, post_id) < (cursor)`.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Ship `LIMIT 20 OFFSET (page-1)*20`. Page 1 is 2 ms. A power user on page 3000 is
 900 ms and climbing; meanwhile new posts arrive, so their page 2 now shows a post
 they already saw on page 1.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Keyset. Order by a **unique tuple** ending in the primary key, index that exact
 tuple + direction, and page with a row-value comparison. Expose an opaque
 `cursor` string, not a page number.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 `OFFSET n` has no shortcut — SQL defines it as "discard the first `n` rows of the
 ordered result", so the engine must generate them. Keyset turns "the next page"
 into a **range predicate** the index can seek to directly, so work is
@@ -302,18 +302,18 @@ ORDER BY a.author_id;`}
 
 ### Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 List endpoint does one `JOIN` (or one list query + one `WHERE id = ANY($ids)`
 batch). Zero per-item queries.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Serialize `post.author.name` with a lazy ORM association and no eager-load hint.
 The list endpoint issues 1 + page_size queries. It's invisible in dev (1 + 5),
 then it's the p99 in prod (1 + 100) and the DB connection pool is saturated.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 - Prefer a `JOIN` when you need a few columns of the related row.
 - Batch-load (`WHERE id = ANY(...)`) when the ORM makes joins awkward or you need
   whole related objects — this is `includes` / `prefetch_related` /
@@ -323,7 +323,7 @@ then it's the p99 in prod (1 + 100) and the DB connection pool is saturated.
 - Turn on your ORM's "raise on N+1" / query-count assertions in tests.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 Each query has fixed overhead — parse, plan, network round-trip — that dwarfs the
 work of fetching one row by primary key. N of them run **sequentially** (the loop
 waits for each result before issuing the next), so latency is `N × round_trip`,

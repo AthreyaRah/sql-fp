@@ -234,13 +234,13 @@ ORDER BY as_of;`}
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 Two-step load: **close** changed current rows (`valid_to`, `is_current=false`),
 then **insert** a new version for every business key that now has no current row.
 Guard "exactly one current" with `CREATE UNIQUE INDEX ... WHERE is_current`.
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Skip the "attributes actually changed" check and re-version everyone every load:
 
 ```sql
@@ -253,7 +253,7 @@ customer, `valid_from = valid_to` on the junk rows, and point-in-time joins now
 match several rows for one date. The dimension is corrupt and huge.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 - Only close/insert when `(new attrs) IS DISTINCT FROM (current attrs)` — `IS
   DISTINCT FROM` so a `NULL → value` change counts.
 - Make the load **idempotent**: re-running with the same source is a no-op.
@@ -261,7 +261,7 @@ match several rows for one date. The dimension is corrupt and huge.
   constraint `valid_from < valid_to`.
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 Type 2 history is only meaningful if a version boundary corresponds to a *real
 attribute change*. Without the `IS DISTINCT FROM` gate, every load manufactures a
 boundary, so "which version was current on date X" stops being a single row —

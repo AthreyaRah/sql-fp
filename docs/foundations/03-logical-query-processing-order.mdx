@@ -153,7 +153,7 @@ ORDER BY total DESC;
 
 ## Build → Break → Fix → Why
 
-:::tip 🔨 Build
+:::tip[🔨 Build]
 "Customers whose paid total exceeds 20":
 
 ```sql
@@ -165,7 +165,7 @@ HAVING sum(amount) > 20;
 ```
 :::
 
-:::danger 💥 Break
+:::danger[💥 Break]
 Try to filter the total in `WHERE`, using the alias:
 
 ```sql
@@ -179,7 +179,7 @@ And with the aggregate spelled out: `WHERE sum(amount) > 20` →
 `ERROR: aggregate functions are not allowed in WHERE`.
 :::
 
-:::note 🔧 Fix
+:::note[🔧 Fix]
 Row filters go in `WHERE`; group filters go in `HAVING`:
 
 ```sql
@@ -189,7 +189,7 @@ HAVING sum(amount) > 20;
 ```
 :::
 
-:::info 🧠 Why it behaved that way
+:::info[🧠 Why it behaved that way]
 `WHERE` is step 2; the alias `total` is bound in step 5 (`SELECT`) and the
 aggregate `sum(amount)` doesn't exist until the grouping in step 3. So at the
 moment `WHERE` runs, neither name means anything. `HAVING` is step 4 — after
